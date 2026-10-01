@@ -2,7 +2,7 @@
 
 Interface Foundry VTT **v13/v14** para uma **Room oficial VDO.Ninja**. Um iframe local por cliente, Stream IDs estáveis configurados pelo GM e um dock ApplicationV2 próprio. O jogador usa os controles nativos do VDO.Ninja para ativar a câmera e participar.
 
-**Versão de produção: 1.0.0.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
+**Versão de produção: 1.0.1.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
 
 A arquitetura vigente está em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). A proposta anterior foi preservada, sem alterações, em [docs/ARCHITECTURE-OLD-MEDIAMTX.md](docs/ARCHITECTURE-OLD-MEDIAMTX.md) **apenas como histórico superado**.
 
@@ -15,7 +15,7 @@ A arquitetura vigente está em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). A p
 5. Cada cliente: a dock abre ao entrar. Para abrir/reabrir manualmente, clique em **Câmeras VDO.Ninja** na aba Configurações da sidebar. O jogador que aguardava um slot entra ao receber a associação salva. Quem já está conectado usa a engrenagem → **Aplicar / reconectar**. A câmera e a permissão são ativadas na UI nativa do VDO.
 6. GM: copie o solo link de cada usuário para uma Browser Source OBS, ou use **Baixar links OBS** para uma lista JSON organizada. O arquivo contém URLs e dimensões sugeridas; não é uma coleção de cenas OBS nem instala/configura o OBS.
 
-O [repositório](https://github.com/henriquebot/rpgup-vdo-ninja) contém o código e o manifest vigentes na `main`. O download desta versão usa a branch de distribuição **v1.0.0**, que mantém o artefato desta versão separado de alterações futuras da main. Não há workflow de publicação. O Foundry identifica a raiz pelo `module.json` dentro do arquivo do GitHub.
+O [repositório](https://github.com/henriquebot/rpgup-vdo-ninja) contém o código e o manifest vigentes na `main`. O download desta versão usa a branch de distribuição **v1.0.1**, que mantém o artefato desta versão separado de alterações futuras da main. Não há workflow de publicação. O Foundry identifica a raiz pelo `module.json` dentro do arquivo do GitHub.
 
 Para instalação manual de desenvolvimento, execute `npm run package` com Node.js 20+ e copie `dist/rpgup-vdo-ninja` para `<User Data>/Data/modules/rpgup-vdo-ninja`. Uma nova versão atualiza `module.json`/`package.json` e seu link de distribuição.
 
@@ -70,6 +70,6 @@ Teste optativo da UI oficial: `npm run test:official-ui` usa o mesmo Playwright 
 
 `npm run test:official-layout` compara padrão, `structure&cover`, `cover` e uma sequência `rows` com 1–4 `fakeguests` nativos em áreas vertical/horizontal. Mede contêineres, salva JSON/capturas em `test-results/official-layout` e verifica o parser de Room/mini preview/PiP e o toggle Director. Usa o mesmo Playwright, bloqueia WebSockets e não concede dispositivos. É prova do renderizador e do parser servidos pelo VDO, sem Foundry autenticado ou peers reais.
 
-Para atualizar: saia do World, atualize o módulo no Setup e confirme **1.0.0**. Recarregue os navegadores do GM e dos jogadores (Ctrl+F5). Room, slots e preferências existentes são preservados; a configuração antiga mantém qualidade automática e nenhum avatar adicional da mesa. Não é necessário desinstalar nem gerar novos IDs.
+Para atualizar: saia do World, atualize o módulo no Setup e confirme **1.0.1**. Recarregue os navegadores do GM e dos jogadores (Ctrl+F5). Room, slots e preferências existentes são preservados. Configurações sem layout salvo continuam no padrão VDO.Ninja; para preencher as áreas, selecione **Layout das câmeras → Compacto / preencher espaço**, salve e aplique/reconecte em cada cliente. Não é necessário desinstalar nem gerar novos IDs.
 
 O módulo usa um iframe oficial por cliente e não inclui servidor de mídia, backend, SDK WebRTC, AVClient, controle OBS ou fork. O painel aceita os usuários do World, inclusive mesas com 4–6 participantes; o teste automatizado de seis usuários verifica associação e exportação, não capacidade de mídia da rede. A aprovação do protótipo e a autorização de produção vieram do usuário. Os testes do agente, seus ambientes e limites estão registrados em [PROTOTYPE-RESULTS.md](docs/PROTOTYPE-RESULTS.md).

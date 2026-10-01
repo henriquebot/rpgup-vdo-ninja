@@ -1,6 +1,6 @@
 # Resultados do primeiro protótipo
 
-Data: **01/10/2026**, America/Sao_Paulo. Módulo de produção: `1.0.0`. Histórico do protótipo: `0.1.0-prototype.1` a `.3`.
+Data: **01/10/2026**, America/Sao_Paulo. Módulo de produção: `1.0.1`. Histórico do protótipo: `0.1.0-prototype.1` a `.3`.
 
 **Gate: APROVADO PELO USUÁRIO.** Após a revisão .3, o usuário declarou “prototipo aprovado” e “pode ir pra produção”, solicitando reload da dock, refinamento visual/usabilidade e compatibilidade v13/v14. Essa aprovação autoriza a versão 1.0.0 e os itens pós-protótipo. O usuário não informou a geração usada ou medições específicas; a aprovação não é apresentada como uma sessão de mídia observada pelo agente em ambas as gerações.
 
@@ -168,7 +168,7 @@ Responsável pela validação:
 
 ## Investigação de layout nativo da Room — 01/10/2026
 
-Alteração isolada proposta em `codex/native-room-layout`: whitelist de `structure` (flag sem valor) e `cover` (sem valor ou `2`); opção GM persistente **Layout das câmeras**, padrão nativo e Compacto com `cover`. Nenhuma alteração de arquitetura, iframe, slots, Director, autenticação ou OBS. `URLSearchParams` pode serializar flags como `structure=&cover=`; o VDO lê sua presença. Valores falsos e duplicatas são rejeitados.
+Alteração isolada incorporada à main pelo [PR #5](https://github.com/henriquebot/rpgup-vdo-ninja/pull/5) e publicada na **1.0.1**, por solicitação do usuário: whitelist de `structure` (flag sem valor) e `cover` (sem valor ou `2`); opção GM persistente **Layout das câmeras**, padrão nativo e Compacto com `cover`. Nenhuma alteração de arquitetura, iframe, slots, Director, autenticação ou OBS. `URLSearchParams` pode serializar flags como `structure=&cover=`; o VDO lê sua presença. Valores falsos e duplicatas são rejeitados. A publicação atualiza somente versão/download e documentação após o merge; mantém a implementação e a validação visual real pendente abaixo.
 
 ### Evidência do renderizador oficial
 

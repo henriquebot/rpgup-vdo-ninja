@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 1.0.1 — 01/10/2026
+
+- PR #5 incorporado à main: opção GM **Compacto / preencher espaço** usa `cover` nativo somente na Room; `structure` e `cover` sem valor e `cover=2` são permitidos explicitamente nos avançados.
+- Manifest e download atualizados para a branch de distribuição `v1.0.1`, com o mesmo endereço de atualização na main e compatibilidade Foundry v13/v14.
+- Arquitetura e implementação do PR preservadas. Room, IDs, labels, áudio e links OBS não mudam. Configurações antigas continuam no layout padrão até selecionar Compacto.
+
+33 testes unitários e provas de fixture/renderizador documentadas no PR. O recorte de `cover` e o resultado visual com câmeras reais ainda precisam ser validados no Foundry v14; publicação não substitui essa prova.
+
 ## 1.0.0 — 01/10/2026
 
 Primeira versão de produção, após aprovação expressa do protótipo pelo usuário. Foundry v13/v14; manifest mínimo 13, verificado 14 e máximo 14.
