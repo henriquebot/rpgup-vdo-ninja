@@ -2,9 +2,12 @@ export const MODULE_ID = "rpgup-vdo-ninja";
 export const VDO_BASE = "https://vdo.ninja/";
 export const DOCKS = { left: "Esquerda", right: "Direita", top: "Topo", bottom: "Embaixo", floating: "Flutuante" };
 export const PREVIEWS = { native: "Preview nativo", mini: "Mini preview", pip: "PiP da própria câmera" };
+export const INTERFACES = { auto: "Automático", desktop: "PC", mobile: "Móvel" };
+export const AVATARS = { foundry: "Avatar do usuário Foundry", custom: "Imagem por URL", none: "Sem placeholder" };
 export const DEFAULT_WORLD = { roomId: "", extraQuery: "", audio: "discord", directorUserId: "", slots: {} };
 export const DEFAULT_PREFS = {
-  dock: "right", preview: "native", autoOpen: true,
+  dock: "floating", preview: "native", autoOpen: true,
+  zoom: 1, interface: "auto", camera: "", avatar: "foundry", avatarURL: "",
   sideWidth: 440, barHeight: 360,
   floating: { width: 720, height: 600, left: 120, top: 80 }
 };
@@ -70,9 +73,15 @@ export function fillMissingSlots(slots, users, randomBytes = size => crypto.getR
 const bounded = (value, fallback, min, max) => Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
 export function normalizePrefs(input = {}) {
   return {
+    schemaVersion: 2,
     dock: Object.hasOwn(DOCKS, input?.dock) ? input.dock : DEFAULT_PREFS.dock,
     preview: Object.hasOwn(PREVIEWS, input?.preview) ? input.preview : "native",
     autoOpen: typeof input?.autoOpen === "boolean" ? input.autoOpen : true,
+    zoom: bounded(input?.zoom, 1, 0.5, 1.5),
+    interface: Object.hasOwn(INTERFACES, input?.interface) ? input.interface : "auto",
+    camera: typeof input?.camera === "string" ? input.camera.trim().slice(0, 256) : "",
+    avatar: Object.hasOwn(AVATARS, input?.avatar) ? input.avatar : "foundry",
+    avatarURL: typeof input?.avatarURL === "string" ? input.avatarURL.trim().slice(0, 2048) : "",
     sideWidth: bounded(input?.sideWidth, 440, 320, 2400),
     barHeight: bounded(input?.barHeight, 360, 240, 1800),
     floating: {
@@ -90,11 +99,11 @@ export function dockPosition(prefs, viewport) {
   const maxWidth = Math.max(1, viewport.width - gap * 2);
   const maxHeight = Math.max(1, viewport.height - gap * 2);
   if (["left", "right"].includes(p.dock)) {
-    const width = Math.min(p.sideWidth, maxWidth);
+    const width = Math.min(p.sideWidth, maxWidth, Math.max(1, viewport.width * 0.5 - gap));
     return { width, height: maxHeight, left: p.dock === "left" ? gap : viewport.width - gap - width, top: gap };
   }
   if (["top", "bottom"].includes(p.dock)) {
-    const height = Math.min(p.barHeight, maxHeight);
+    const height = Math.min(p.barHeight, maxHeight, Math.max(1, viewport.height * 0.5 - gap));
     return { width: maxWidth, height, left: gap, top: p.dock === "top" ? gap : viewport.height - gap - height };
   }
   const width = Math.min(p.floating.width, maxWidth);

@@ -1,8 +1,16 @@
 # Resultados do primeiro protótipo
 
-Data: **01/10/2026**, America/Sao_Paulo. Módulo: `0.1.0-prototype.1`. Escopo: **1 GM + 2 jogadores**, primeiro na v14 e depois na v13.
+Data: **01/10/2026**, America/Sao_Paulo. Módulo atual: `0.1.0-prototype.2`. Escopo: **1 GM + 2 jogadores**, primeiro na v14 e depois na v13.
 
-**Gate: PENDENTE — NÃO avançar para 4–6 participantes, avatar, presets ou produto completo.** O código e sua fixture passaram nas verificações abaixo. Ainda não houve sessão em um World real, captura real, teste de menus VDO, PiP ou recepção OBS. A ausência desses resultados não é uma falha fundamental comprovada e não justifica trocar de arquitetura.
+**Gate: PENDENTE — NÃO avançar para 4–6 participantes, presets ou produto completo.** O usuário relatou sucesso parcial do GM no World, mas o jogador ficou sem associação e os slots pareciam ser perdidos ao reconectar. As correções abaixo passaram nos testes de código; falta repetir a sessão real. Câmeras entre três clientes, menus, PiP e OBS ainda não foram validados pelo agente.
+
+## Retorno do usuário e revisão .2
+
+Após instalar o primeiro protótipo, o usuário informou: GM funcionou; jogador recebeu “GM ainda não associou um ID”; gerar/salvar não resolveu e aplicar/reconectar pareceu resetar os slots; câmera padrão do GM e placeholder não foram lembrados. A geração exata usada nessa sessão não foi informada, portanto não atribuímos o resultado à v13 ou v14. O agente não entrou nos Worlds nem observou essa sessão.
+
+O código anterior gerava IDs somente no formulário, recriava o formulário a cada render e exigia reconexão manual mesmo para um jogador aguardando sua primeira associação. A origem exata do aparente reset após salvar no runtime real não foi reproduzida; não afirmamos que um teste com dados simulados a tenha demonstrado. A revisão torna o fluxo explícito: gerar já salva, confere o valor de Settings, preserva rascunhos, usa um único painel GM e abre o iframe de quem aguardava slot ao receber o Setting. Reconectar no GM salva o rascunho aberto antes de ler os dados; reconectar nunca gera IDs.
+
+Por solicitação adicional, flutuante passa a ser padrão (com migração individual uma vez), bordas reservam espaço da UI, zoom 50–150% não recarrega, câmera padrão usa `vdo=1` com nome opcional, avatar usa a imagem do usuário Foundry ou URL salva e interface admite Automático/PC/Móvel. São opções nativas do VDO e apresentação do iframe. Avatar e câmera reais ainda precisam de prova; essa extensão expressamente solicitada não fecha o gate.
 
 ## Ambientes identificados
 
@@ -41,7 +49,7 @@ Nos testes unitários, a configuração fictícia incluiu também `roombitrate=5
 
 ## O que passou no código
 
-`npm test`: **9 testes passaram**. `npm run check`: manifest, arquivos referenciados e sintaxe passaram. `npm run test:browser` com Playwright + Edge instalado: passou com **zero erros de página**. A fixture implementa um substituto limitado do contrato ApplicationV2 e intercepta a URL do iframe; não inclui Foundry licenciado ou WebRTC VDO.
+Na revisão .2, `npm test`: **12 testes passaram**. `npm run check`: manifest, arquivos referenciados e sintaxe passaram. `npm run test:browser` com Playwright + Edge instalado: passou com **zero erros de página**. A fixture implementa um substituto limitado do contrato ApplicationV2 e intercepta a URL do iframe; não inclui Foundry licenciado ou WebRTC VDO. Settings retorna um objeto vivo e a fixture transmite alterações do mundo entre páginas via eventos de storage para verificar os clientes; isso não testa o socket real do Foundry.
 
 | Verificação | Resultado | Limite |
 | --- | --- | --- |
@@ -55,12 +63,20 @@ Nos testes unitários, a configuração fictícia incluiu também `roombitrate=5
 | Reconectar e fechar/reabrir mantém um iframe local e mesmo slot | Passou | Fixture |
 | Preferências persistem após reload e não vazam entre usuários | Passou | `User` substituído por armazenamento da fixture |
 | Jogador não abre painel GM; Director só para GM designado | Passou | Guarda do módulo/URL; não autenticação VDO |
+| Jogador aguardando slot recebe associação gerada/salva e abre iframe | Passou | Duas páginas na fixture; não socket Foundry |
+| Gerar de novo/reconectar/recarregar conserva IDs | Passou | Settings/cache e armazenamento simulados |
+| Rascunho sobrevive a reabrir/rerender; aplicar salva antes de reconectar | Passou | Fixture ApplicationV2 |
+| Alteração de outro GM e gravação recusada não dão falso sucesso | Passou | Falhas injetadas na fixture |
+| Jogador criado com painel aberto aparece sem perder o rascunho | Passou | Evento `createUser` e coleção simulados; não teste com quarto publisher |
+| Bordas reservam área da interface; flutuante/fechar liberam | Passou | DOM/layout representativos v13, não UI real v13/v14 |
+| Zoom não navega e mantém preenchimento após resize | Passou | Edge, viewports 1440×900, 900×650, 390×640 e 360×280 |
+| Câmera, avatar, zoom e modo móvel persistem após reload | Passou | Flags simuladas e URLs, não captura/fallback de imagem |
 
 A compatibilidade foi construída contra os contratos documentados v13/v14 e conferida também no código local da v13.351. Não há `compatibility.verified` no manifest: **ambas as gerações ainda exigem validação funcional real**.
 
 ## O que ainda não funcionou ou não foi testado
 
-Não há falha real de câmera/VDO registrada, porque esses testes ainda não ocorreram. Não confundir “pendente” com “passou”.
+O retorno real do usuário acima confirma uma falha na primeira integração do jogador e problemas de preferências. A tabela continua pendente por geração porque não houve prova observada pelo agente nem reteste da revisão .2. Não confundir testes de código com aprovação de mídia.
 
 | Teste exigido | v14.367 | v13.351 | Evidência necessária |
 | --- | --- | --- | --- |
@@ -79,19 +95,19 @@ Não há falha real de câmera/VDO registrada, porque esses testes ainda não oc
 | Solo link em Browser Source OBS | Pendente | Pendente | Uma câmera por source, reconexão sem editar URL |
 | `postMessage` oficial | Não necessário inicialmente | Não necessário inicialmente | Só testar/adicionar se uma necessidade real surgir |
 
-O módulo lembra o tipo de preview; **não implementa persistência de posição/tamanho do PiP de sistema**. Investigar o comportamento nativo antes de chamar isso de requisito cumprido. Avatar foi investigado na [documentação oficial](https://docs.vdo.ninja/advanced-settings/video-parameters/and-avatar); implementação e fallback real ficam após o gate.
+O módulo lembra o tipo de preview; **não implementa persistência de posição/tamanho do PiP de sistema**. Avatar por URL/Foundry foi implementado por solicitação explícita do usuário usando a [opção oficial](https://docs.vdo.ninja/advanced-settings/video-parameters/and-avatar). Falta conferir carregamento/CORS da imagem e vídeo mutado/sem dispositivo entre peers e no OBS. Não é prova de fallback funcional.
 
 ## Roteiro de prova real
 
 1. Crie/abra um World separado de testes em `https://v14.rpgup.com.br/`; use 1 GM e 2 usuários jogadores. Depois repita na v13. Não atualize geração nem migre campanha para realizar a prova.
 2. Instale pelo manifest `https://raw.githubusercontent.com/henriquebot/rpgup-vdo-ninja/main/module.json` no Setup → Módulos → Instalar módulo e habilite somente nesse World. Registre `game.version`, sistema e módulos habilitados. Abra por HTTPS em três navegadores/perfis/dispositivos; idealmente três pessoas/dispositivos com câmeras. Múltiplas abas com o mesmo usuário/slot provocam conflito de publicação.
-3. GM: configure uma Room de teste com ID distinto de outras sessões, senha opcional e slots para os três usuários. Guarde a associação; não gere novos IDs durante reconexões. Outros usuários do World podem ficar sem slot.
+3. GM: configure uma Room de teste com ID distinto de outras sessões, senha opcional e clique em **Gerar e salvar slots faltantes**. Verifique a confirmação e os três IDs no painel reaberto. Com um jogador já aguardando sem slot, confira se o iframe abre quando recebe o Setting. Guarde a associação; gerar novamente e reconectar devem conservar os IDs. Outros usuários do World podem ficar sem slot.
 4. Entre nos três clientes e aplique/reconecte. Selecione câmera e confirme permissão na UI nativa. Teste permissão negada e depois autorizada. Registre qual origem pediu permissão, mensagens/erros, política do documento pai e se microfone foi solicitado no modo Discord.
 5. Verifique os seis caminhos de vídeo: GM vê A/B; A vê GM/B; B vê GM/A. Desligue/ligue uma câmera e recarregue um cliente. Confirme mesmo slot e reconexão; registre atrasos/falhas.
 6. Clique com botão direito na própria câmera e nas outras, como jogador e como GM guest. Registre opções, funcionalidade e clipping na borda do iframe. Não inferir que o menu funciona só porque o código do pai não bloqueia `contextmenu`.
 7. Selecione o GM como Director na configuração e reconecte apenas seu iframe. Ative câmera via UI Director e teste novamente visão mútua e menus. Registre se o primeiro Director reivindica a Room, opções disponíveis, câmera GM no slot original e OBS. Volte a guest para comparar. Não abra um segundo iframe para o GM.
 8. Mude áudio para VDO e reconecte todos; teste microfone, mute, volume e opções de participantes. Confirme prompt de microfone na origem VDO e fluxo nativo. Ao terminar, retorne ao modo de áudio desejado pela mesa.
-9. Em cada cliente, altere esquerda/direita/topo/embaixo/flutuante, slider e resize nativo. Redimensione o navegador, feche/reabra e recarregue. Verifique persistência individual e que mover o dock não reabre câmera. Observe sobreposição com controles/sidebar do Foundry.
+9. Em cada cliente, confira flutuante na primeira abertura e altere esquerda/direita/topo/embaixo/flutuante, slider e resize nativo. Redimensione o navegador, feche/reabra e recarregue. Verifique persistência individual, zoom sem reconectar e acesso a controles/sidebar/hotbar com cada borda. Confira também com AV nativo/temas/módulos de UI usados pela mesa. Em Opções, teste câmera padrão/nome, avatar Foundry/URL/sem placeholder e Automático/PC/Móvel; aplique, mute/desmute e recarregue para conferir persistência e imagem entre peers.
 10. No GM, teste preview nativo, `minipreview` e `pipme`, aplicando/reconectando quando mudar opção. Sem `autostart`. Com foco no iframe, teste Ctrl+Alt+P (Cmd+Alt+P no Mac), controles nativos e gesto manual. Mova PiP próximo à câmera física; confirme demais jogadores no dock e comportamento ao fechar/reabrir/PiP. Registre suporte e persistência oferecidos pelo navegador.
 11. No painel GM, copie os três solo links para três Browser Sources OBS. Registre versão OBS/CEF, tamanho da source, codec/resolução/FPS efetivos, imagem individual, áudio escolhido, ligar/desligar câmera e reload do publisher. Confirme retorno usando a mesma URL. Não gravar ou publicar a sessão sem autorização dos participantes.
 12. Preencha a ficha abaixo **para cada geração**. Se algo fundamental falhar, inclua passos, versão e mensagens e mantenha o gate pendente; investigue o recurso oficial antes de alternativas.

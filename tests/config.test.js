@@ -96,7 +96,7 @@ test("OBS gera solo/view do slot certo, com Room/senha e sem publicar nem captur
 });
 
 test("preferências e geometria são normalizadas sem escapar da viewport", () => {
-  assert.equal(normalizePrefs({ dock: "invalid", preview: "network", sideWidth: NaN }).dock, "right");
+  assert.equal(normalizePrefs({ dock: "invalid", preview: "network", sideWidth: NaN }).dock, "floating");
   for (const dock of ["left", "right", "top", "bottom", "floating"]) {
     for (const [width, height] of [[1920, 1080], [360, 640], [250, 200]]) {
       const pos = dockPosition({ dock, floating: { width: 2400, height: 1800, left: 9999, top: 9999 } }, { width, height });
@@ -105,5 +105,28 @@ test("preferências e geometria são normalizadas sem escapar da viewport", () =
       assert.ok(pos.left + pos.width <= width);
       assert.ok(pos.top + pos.height <= height);
     }
+  }
+});
+
+test("câmera padrão, avatar Foundry e interface móvel usam parâmetros oficiais sem afetar identidade", () => {
+  const gm = { ...users[0], avatar: "users/henrique.webp" };
+  const defaultURL = new URL(participantURL(world, gm, {}, users, "https://foundry.example/game"));
+  assert.equal(defaultURL.searchParams.get("vdo"), "1");
+  assert.equal(defaultURL.searchParams.get("avatar"), "https://foundry.example/users/henrique.webp");
+  const custom = new URL(participantURL(world, gm, {
+    camera: "OBS Virtual Camera", interface: "mobile", avatar: "custom", avatarURL: "https://images.example/a.webp?x=1&y=2"
+  }, users));
+  assert.equal(custom.searchParams.get("vdo"), "OBS Virtual Camera");
+  assert.equal(custom.searchParams.get("avatar"), "https://images.example/a.webp?x=1&y=2");
+  assert.ok(custom.searchParams.has("mobile"));
+  assert.equal(custom.searchParams.has("notmobile"), false);
+  const desktop = new URL(participantURL(world, gm, { interface: "desktop", avatar: "none" }, users));
+  assert.ok(desktop.searchParams.has("notmobile"));
+  assert.equal(desktop.searchParams.has("avatar"), false);
+  assert.equal(custom.searchParams.get("push"), world.slots.gm1);
+  const obs = new URL(soloURL(world, gm.id, users));
+  for (const key of ["avatar", "vdo", "mobile", "notmobile"]) assert.equal(obs.searchParams.has(key), false);
+  for (const image of ["javascript:alert(1)", "blob:https://foundry.example/id", "https://user:password@example.com/a.webp", "http://example.com/a.webp"]) {
+    assert.throws(() => participantURL(world, gm, { avatar: "custom", avatarURL: image }, users, "https://foundry.example/game"), /Placeholder/);
   }
 });

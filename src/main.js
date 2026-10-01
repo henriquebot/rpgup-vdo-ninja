@@ -10,7 +10,10 @@ export function openDock() {
 }
 
 Hooks.once("init", () => {
-  registerSettings(RoomDock, WorldConfig, () => RoomDock.instance?.configChanged());
+  registerSettings(RoomDock, WorldConfig, () => {
+    WorldConfig.instance?.configChanged();
+    RoomDock.instance?.configChanged();
+  });
   game.modules.get(MODULE_ID).api = Object.freeze({ openDock });
 });
 
@@ -19,7 +22,11 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("updateUser", (user, changes) => {
-  if (user.id === game.user.id && (changes.name !== undefined || changes.role !== undefined)) {
+  if (["name", "role"].some(key => changes[key] !== undefined)) WorldConfig.instance?.refreshUsers();
+  if (user.id === game.user.id && ["name", "role", "avatar"].some(key => changes[key] !== undefined)) {
     RoomDock.instance?.configChanged();
   }
 });
+
+Hooks.on("createUser", () => WorldConfig.instance?.refreshUsers());
+Hooks.on("deleteUser", () => WorldConfig.instance?.refreshUsers());
