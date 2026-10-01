@@ -9,10 +9,13 @@ function configuredURL(world, users) {
 
 function addExtras(url, world, { viewer = false } = {}) {
   const params = new URLSearchParams(QUALITY_PRESETS[world.quality].params);
+  // Native cover fills the allocated area. structure would constrain it to 16:9
+  // and retained the vertical gaps in the official renderer probe.
+  if (!viewer && world.roomLayout === "compact") params.set("cover", "");
   // Explicit advanced values take precedence over the selected preset.
   for (const [key, value] of parseExtraQuery(world.extraQuery)) params.set(key, value);
   for (const [key, value] of params) {
-    // OBS receives connection/password options, not the publisher's capture constraints.
+    // OBS receives connection/password options, never Room layout or capture constraints.
     if (viewer && !["password", "codec", "videobitrate"].includes(key)) continue;
     url.searchParams.set(key, value);
   }

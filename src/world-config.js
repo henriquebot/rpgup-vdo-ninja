@@ -1,4 +1,4 @@
-import { fillMissingSlots, validateWorld, QUALITY_PRESETS } from "./config.js";
+import { fillMissingSlots, validateWorld, QUALITY_PRESETS, ROOM_LAYOUTS } from "./config.js";
 import { worldConfig, saveWorld } from "./settings.js";
 import { soloURL, obsExport } from "./urls.js";
 import { element, select, field, tooltip, panel, button, downloadJSON, report } from "./dom.js";
@@ -42,6 +42,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     for (const user of users.filter(user => user.isGM)) directors[user.id] = user.name;
     const director = select(directors, config.directorUserId, "directorUserId");
     const quality = select(Object.fromEntries(Object.entries(QUALITY_PRESETS).map(([key, value]) => [key, value.label])), config.quality ?? "native", "quality");
+    const roomLayout = select(ROOM_LAYOUTS, config.roomLayout ?? "native", "roomLayout");
     const qualityHelp = element("p", QUALITY_PRESETS[quality.value].help, { class: "rpgup-help", role: "status" });
     quality.addEventListener("change", () => { qualityHelp.textContent = QUALITY_PRESETS[quality.value].help; });
     const intro = element("div", undefined, { class: "rpgup-intro" });
@@ -51,12 +52,13 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
       field("Room ID compartilhada", room, "Nome da sala VDO usada por todos os participantes deste World. Use 1–49 letras ou números; maiúsculas fazem diferença. Mudar a Room exige reconectar e atualizar os links OBS."),
       field("Áudio", audio, "Discord desativa microfone e reprodução de áudio do VDO. Áudio VDO permite seus controles nativos. Todos precisam reconectar após mudar; evite ouvir a mesma voz pelos dois serviços."),
       field("GM como Director", director, "Escolha um GM para usar o painel de direção no mesmo iframe. Ele começa em Scene Preview; Toggle Director Vision alterna cena/painel. A opção vazia mantém todos como participantes comuns."),
-      field("Qualidade dos vídeos", quality, "Escolha um limite para os vídeos da mesa. Automático mantém o VDO adaptativo. As opções avançadas têm prioridade sobre o preset. Todos precisam aplicar/reconectar após mudar.")
+      field("Qualidade dos vídeos", quality, "Escolha um limite para os vídeos da mesa. Automático mantém o VDO adaptativo. As opções avançadas têm prioridade sobre o preset. Todos precisam aplicar/reconectar após mudar."),
+      field("Layout das câmeras", roomLayout, "Compacto usa cover nativo para preencher as áreas das câmeras, podendo recortar a imagem e o self-preview. Padrão não adiciona layout. Só afeta a Room, inclusive o preview do Director; links OBS não mudam. Salve e aplique/reconecte. Resultado visual depende da Room; parâmetros avançados continuam ativos.")
     );
     const advanced = element("details", undefined, { class: "rpgup-advanced" });
     advanced.append(element("summary", "Parâmetros avançados"),
       field("Parâmetros adicionais", extra, "Opções oficiais permitidas, como password=Senha123. Deixe vazio para usar o preset. Não informe uma URL completa; esses valores são compartilhados com os usuários do World."),
-      element("p", "Permitidos: password, roombitrate, totalroombitrate, videobitrate, codec, width, height, fps e maxframerate. Valores aqui têm prioridade sobre o preset.", { class: "rpgup-help" })
+      element("p", "Permitidos: password, roombitrate, totalroombitrate, videobitrate, codec, width, height, fps, maxframerate, structure e cover. Layout: structure&cover sem valores; cover=2 limita o recorte ao eixo horizontal. Valores aqui têm prioridade sobre as opções acima e layout nunca entra nos links OBS.", { class: "rpgup-help" })
     );
     form.append(
       intro, panel("Conexão e qualidade", "Compartilhado com os participantes deste World. Depois de salvar, quem já está conectado aplica as mudanças pela engrenagem da dock.", roomFields, qualityHelp, advanced)
@@ -165,7 +167,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
         if (value) avatars[userId] = value;
         else delete avatars[userId];
       }
-      return { roomId: room.value.trim(), extraQuery: extra.value.trim(), audio: audio.value, directorUserId: director.value, slots, quality: quality.value, avatars };
+      return { roomId: room.value.trim(), extraQuery: extra.value.trim(), audio: audio.value, directorUserId: director.value, slots, quality: quality.value, avatars, roomLayout: roomLayout.value };
     };
     this._saveDraft = async () => {
       if (JSON.stringify(worldConfig()) !== JSON.stringify(this._baseConfig)) throw new Error("Outro GM alterou a configuração. Feche e reabra o painel antes de salvar.");
@@ -195,7 +197,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
 
   get dirty() {
     if (!this._form) return false;
-    const base = { ...this._baseConfig, quality: this._baseConfig.quality ?? "native", avatars: this._baseConfig.avatars ?? {} };
+    const base = { ...this._baseConfig, quality: this._baseConfig.quality ?? "native", avatars: this._baseConfig.avatars ?? {}, roomLayout: this._baseConfig.roomLayout ?? "native" };
     return JSON.stringify(this._readDraft()) !== JSON.stringify(base);
   }
 

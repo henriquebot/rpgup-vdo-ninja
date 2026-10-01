@@ -123,10 +123,14 @@ try {
   await page.getByRole("combobox", { name: "audio", exact: true }).selectOption("vdo");
   await page.getByRole("combobox", { name: "directorUserId", exact: true }).selectOption("gm1");
   await page.getByRole("combobox", { name: "quality", exact: true }).selectOption("economy");
+  assert.equal(await page.getByRole("combobox", { name: "roomLayout", exact: true }).inputValue(), "native");
+  await page.getByRole("combobox", { name: "roomLayout", exact: true }).selectOption("compact");
   await page.getByRole("textbox", { name: "Avatar da mesa de Jogador A", exact: true }).fill("/tests/users/avatar-gm.webp");
   await page.getByRole("button", { name: "Salvar configuração", exact: true }).click();
   await page.waitForFunction(() => fixture.config().audio === "vdo");
   assert.equal((await page.evaluate(() => fixture.config())).quality, "economy");
+  assert.equal((await page.evaluate(() => fixture.config())).roomLayout, "compact");
+  assert.equal(await page.getByRole("combobox", { name: "roomLayout", exact: true }).inputValue(), "compact");
   const obsDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Baixar links OBS", exact: true }).click();
   const downloadedLinks = await obsDownload;
@@ -134,6 +138,10 @@ try {
   assert.equal(exportedLinks.sources.length, 3);
   assert.equal(exportedLinks.sources.find(source => source.userId === "p1").streamId, "slot_a");
   assert.equal(new URL(exportedLinks.sources[0].url).searchParams.has("maxframerate"), false);
+  for (const source of exportedLinks.sources) {
+    assert.equal(new URL(source.url).searchParams.has("cover"), false);
+    assert.equal(new URL(source.url).searchParams.has("structure"), false);
+  }
   await page.screenshot({ path: path.join(screenshotDirectory, "world-obs-desktop.png") });
   await page.evaluate(async () => { const { WorldConfig } = await import("/src/world-config.js"); WorldConfig.instance.setPosition({ width: 420 }); });
   assert.equal(await page.locator(".rpgup-config-form thead").isVisible(), false, "Tabela vira lista ao estreitar a janela mesmo em um monitor largo");
@@ -154,6 +162,17 @@ try {
   assert.ok(director.searchParams.has("previewmode"));
   assert.equal(director.searchParams.get("roombitrate"), "200");
   assert.equal(director.searchParams.get("maxframerate"), "20");
+  assert.equal(director.searchParams.get("cover"), "");
+  assert.equal(director.searchParams.has("structure"), false);
+  await page.evaluate(() => { globalThis.layoutFrame = document.querySelector("iframe"); });
+  const layoutLoads = navigations;
+  for (const dock of ["left", "right", "top", "bottom", "floating"]) {
+    await page.getByRole("combobox", { name: "Posição do dock", exact: true }).selectOption(dock);
+    assert.equal(await page.locator("iframe").getAttribute("src"), director.href);
+    assert.equal(await page.evaluate(() => layoutFrame === document.querySelector("iframe")), true);
+    assert.equal(await page.locator("iframe").count(), 1);
+  }
+  assert.equal(navigations, layoutLoads, "Reposicionar com cover não cria/navega iframe");
   assert.equal(await page.evaluate(() => notices.filter(notice => notice.value.includes("Toggle Director Vision")).length), 1);
   await page.evaluate(async () => { await (await fixture.dock()).close(); await fixture.menu("openDock"); });
   await page.waitForFunction(() => document.querySelector("iframe"));
@@ -164,6 +183,7 @@ try {
   await openSettings(page);
   assert.equal(await page.getByRole("combobox", { name: "Posição do dock", exact: true }).inputValue(), "floating");
   assert.equal(await page.locator("iframe").evaluate(node => node.style.transform), "scale(0.8)");
+  assert.equal((await page.evaluate(() => fixture.config())).roomLayout, "compact", "Layout da Room persiste após reload");
   assert.equal(await page.getByRole("combobox", { name: "Placeholder", exact: true }).inputValue(), "custom");
   assert.equal(await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).inputValue(), "https://images.example/avatar.webp");
   assert.ok(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar").startsWith("data:image/webp;base64,"));
