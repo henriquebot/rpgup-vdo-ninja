@@ -166,6 +166,43 @@ Gate (aprovado somente com todos os requisitos fundamentais comprovados):
 Responsável pela validação:
 ```
 
+## Investigação de layout nativo da Room — 01/10/2026
+
+Alteração isolada proposta em `codex/native-room-layout`: whitelist de `structure` (flag sem valor) e `cover` (sem valor ou `2`); opção GM persistente **Layout das câmeras**, padrão nativo e Compacto com `cover`. Nenhuma alteração de arquitetura, iframe, slots, Director, autenticação ou OBS. `URLSearchParams` pode serializar flags como `structure=&cover=`; o VDO lê sua presença. Valores falsos e duplicatas são rejeitados.
+
+### Evidência do renderizador oficial
+
+Edge/Chromium **154.0.4258.48**, VDO.Ninja **31.1**, `main.js?ver=1091` e `lib.js?ver=14210`, servidos por `https://vdo.ninja/`. Teste optativo `npm run test:official-layout`: 32 combinações, 1–4 `fakeguests` oficiais 640×360, viewports 360×760 e 1200×300, padrão / `structure&cover` / `cover` / `structure&cover&rows=1,2,3,4`. Nenhum CSS, tile ou layout de vídeo próprio foi injetado. Foram medidos os elementos que o renderizador nativo criou; JSON e capturas ficam em `test-results/official-layout/` (não versionados).
+
+Resultado observado na viewport vertical:
+
+| Câmeras de demonstração | Área por câmera | Contêiner padrão / structure&cover | Contêiner com cover |
+| --- | --- | --- | --- |
+| 1 | 360×760 | 360×203 | 360×760 |
+| 2 | 360×380 | 360×203 | 360×380 |
+| 3 | 360×254 | 360×203 | 360×254 |
+| 4 | 360×190 | 338×190 | 360×190 |
+
+No caso de duas câmeras, padrão e `structure&cover` deixaram aproximadamente 88 px acima e 89 px abaixo de cada imagem, e 177 px entre imagens. `cover` ocupou as áreas contíguas, recortando as laterais das fontes 16:9. As capturas foram inspecionadas. Portanto **a combinação inicialmente sugerida não eliminou o vazio nesta demonstração**; Compacto usa `cover` sozinho. Isso não comprova o enquadramento aceitável ou o layout final de uma sessão real.
+
+`structure` restringe o contêiner à proporção do mixer (16:9 por padrão). `cover` preenche por recorte e também altera as variáveis CSS do self-preview nativo. `rows` força linhas, inclusive sequências por quantidade; o exemplo `1,2,3,4` não removeu o vazio de duas câmeras verticais com structure. Não foi adicionado à whitelist nem ao preset: uma única configuração World deve continuar servindo às quatro bordas. Fontes primárias: [structure](https://docs.vdo.ninja/advanced-settings/design-parameters/and-structure), [cover e cover=2](https://docs.vdo.ninja/advanced-settings/mixer-scene-parameters/cover), [rows](https://docs.vdo.ninja/advanced-settings/design-parameters/and-rows), [código oficial](https://github.com/steveseguin/vdo.ninja).
+
+### Regressões e limites
+
+| Verificação | Resultado / limite |
+| --- | --- |
+| 33 testes unitários, incluindo 1–4 participantes × esquerda/direita/topo/embaixo | Passou. Matriz cobre Compacto, flags manuais, cover=2, Discord/VDO e GM guest/Director; só parâmetros de layout da URL participante mudam. |
+| Room ID, Stream IDs, labels e configuração original | Preservados por comparação exata de URLs e ausência de mutação. |
+| OBS solo e exportação | Comparação exata com/sem layout; structure/cover ausentes mesmo quando informados manualmente. |
+| Áudio e papel Director | Parâmetros anteriores preservados; nenhum áudio ativado pela opção de layout. |
+| Fixture ApplicationV2 / iframe interceptado | Opção GM salva e persiste; cinco posições com cover preservam o mesmo iframe e URL sem navegação; regressões de UI, IDs, avatar e OBS passam. Não é Foundry real. |
+| Room comum, minipreview, pipme e Director com cover / structure&cover no VDO servido | Parser preserva flags de preview; botão real Toggle Director Vision alterna e retorna a Scene Preview. Cover altera enquadramento do self-preview; não foi medida uma câmera local. |
+| Sinalização e dispositivos durante a prova oficial | Todos os WebSockets bloqueados, câmera/microfone não concedidos. Fakeguests são demonstrações locais; nenhuma Room com peers reais, captura ou OBS foi testada. |
+
+Não há conflito observado na geração de URLs ou no parser nativo, mas **PiP/mini preview executados com câmera e o resultado visual final ainda precisam ser validados em uma Room real do VDO.Ninja dentro do Foundry v14**. A whitelist do módulo não adiciona pipme/minipreview: somente o teste diagnóstico do VDO os usa. O teste do renderizador usa uma cena nativa; uma Room de participantes ativos pode ter outros controles/elementos e deve ser conferida diretamente.
+
+Prova visual pendente: com 1, 2, 3 e 4 câmeras reais, comparar Padrão (sem extras de layout), `structure&cover` manual e Compacto (sem structure avançado), nas bordas esquerda/direita/topo/embaixo e ao redimensionar. Registrar espaços, recorte, labels, self-preview, mini preview, PiP após gesto, GM guest e Scene Preview/Director Vision. Conferir áudio e as mesmas fontes solo OBS durante a sessão. Gerar uma URL correta não declara o problema resolvido.
+
 ## Problemas e limites encontrados nesta entrega
 
 - O clone local cadastrado no app estava sem commits/remoto e com arquivos não rastreados. Ele foi preservado. A implementação foi feita em um clone do repositório existente, na branch `codex/official-room-prototype`, partindo de `57a7f1c`.

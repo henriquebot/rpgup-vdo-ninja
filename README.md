@@ -33,7 +33,7 @@ Para instalação manual de desenvolvimento, execute `npm run package` com Node.
 - Qualidade: **Automático** mantém o VDO adaptativo; **Economia**, **Equilibrado** e **Mais detalhe** limitam os vídeos entre jogadores a 200/500/1.200 kbps e captura a até 20/30/30 fps por `maxframerate`. A qualidade efetiva depende de dispositivos, rede e orçamento da Room. Mais detalhe pode precisar de ajuste desse orçamento pelo Director. Presets não impõem resolução/codec nem limitam os viewers solo OBS. Valores avançados prevalecem sobre o preset; clientes conectados precisam aplicar/reconectar após salvar.
 - O GM entra inicialmente como guest. O painel permite escolher um GM como Director com `director`, `push` e `showdirector`, no mesmo iframe. O Director inicia em **Scene Preview** (`previewmode`); um aviso explica o botão **🪟 Toggle Director Vision**, que alterna entre a cena e o painel de direção. O VDO.Ninja controla admissão e poderes de Director; papéis Foundry não são uma autenticação externa.
 - Label usa sempre o nome Foundry. Usuários sem slot não entram. Slots não são recriados ao recarregar; trocar Room, senha ou slot muda os links OBS e precisa ser uma escolha do GM.
-- Room IDs: 1–49 letras/números; Stream IDs: 1–64 letras/números/underscore. Parâmetros adicionais limitados a `password`, `roombitrate`, `totalroombitrate`, `videobitrate`, `codec`, `width`, `height`, `fps`, `maxframerate`. Não use URL completa ou fragmento no campo. O módulo rejeita parâmetros que substituam identidade, papel, transporte ou interface.
+- Room IDs: 1–49 letras/números; Stream IDs: 1–64 letras/números/underscore. Parâmetros adicionais limitados a `password`, `roombitrate`, `totalroombitrate`, `videobitrate`, `codec`, `width`, `height`, `fps`, `maxframerate`, `structure` e `cover`. Não use URL completa ou fragmento no campo. O módulo rejeita parâmetros que substituam identidade, papel, transporte ou interface, exceto o layout nativo explicitamente permitido.
 - Foundry deve estar em HTTPS ou localhost. Atributo `allow` do iframe não sobrepõe bloqueios de Permissions-Policy/CSP no servidor. O módulo preserva o contexto de origem e a UI oficial, sem sandbox que inviabilize câmera ou menus.
 
 Alternativa para reabrir o dock por macro **Script**:
@@ -41,6 +41,20 @@ Alternativa para reabrir o dock por macro **Script**:
 ```js
 game.modules.get("rpgup-vdo-ninja").api.openDock();
 ```
+
+## Layout nativo das câmeras no dock
+
+No painel **World / OBS → Layout das câmeras**, **Padrão VDO.Ninja** não adiciona parâmetros de layout (também é o padrão para configurações antigas). **Compacto / preencher espaço** adiciona somente `cover` à URL da Room de cada participante, inclusive ao preview do GM Director. Salve e use **Aplicar / reconectar** em cada cliente conectado. O parâmetro preenche a área atribuída a cada câmera por recorte; pode cortar laterais, topo/baixo e alterar o enquadramento do self-preview. Não é ajuste de bitrate, resolução ou qualidade.
+
+O teste inicial pedido, `structure&cover`, está disponível em **Parâmetros avançados**: selecione **Padrão VDO.Ninja** e informe `structure&cover`, preservando os outros parâmetros já usados pela mesa. Flags sem valor são aceitas; a URL pode serializá-las como `structure=&cover=`, equivalente para o VDO. Para comparar com Compacto, remova `structure` dos avançados. Escolher Padrão não apaga parâmetros avançados; para restaurar o layout padrão, remova também `cover`/`cover=2` desse campo.
+
+Por que Compacto usa apenas `cover`: na prova com o renderizador oficial 31.1, duas demonstrações nativas 16:9 em 360×760 ficaram em contêineres de 360×203 dentro de áreas de 360×380, tanto no padrão quanto com `structure&cover`. Com `cover` sozinho, cada contêiner ocupou 360×380 por recorte. `structure` fixa a proporção do contêiner e pode manter o vazio ao redor. Fontes: [structure](https://docs.vdo.ninja/advanced-settings/design-parameters/and-structure), [cover](https://docs.vdo.ninja/advanced-settings/mixer-scene-parameters/cover), [renderizador oficial](https://github.com/steveseguin/vdo.ninja/blob/master/lib.js).
+
+Validação explícita: `structure` aceita apenas valor vazio; `cover` aceita vazio ou `2` (variante nativa que recorta somente horizontalmente). Valores como `structure=0`/`cover=false` são rejeitados: o VDO ainda os habilita por presença. Duplicatas continuam proibidas. [rows](https://docs.vdo.ninja/advanced-settings/design-parameters/and-rows) foi investigado, mas não incluído: força linhas e não adapta uma configuração única às bordas verticais e horizontais; `structure&cover&rows=1,2,3,4` manteve o mesmo vazio no exemplo vertical de duas câmeras.
+
+Essas opções afetam somente a composição local da Room. Não mudam Room ID, Stream IDs, labels, parâmetros do Director, áudio ou solo links/exportação OBS e não criam outro iframe. O módulo continua usando os controles nativos para self-preview, PiP e mini preview. `cover` também muda o estilo do preview local no VDO; a execução de PiP/mini preview com câmera real ainda precisa ser conferida.
+
+**O resultado visual final ainda precisa ser validado em uma Room real do VDO.Ninja dentro do Foundry v14.** Compare Padrão, `structure&cover` e Compacto com 1, 2, 3 e 4 câmeras reais, nas bordas esquerda/direita/topo/embaixo, redimensionando a janela. Registre espaços restantes, recortes aceitáveis e self-preview/mini preview/PiP como jogador e Director. A geração correta de URLs e as demonstrações nativas não comprovam a resolução do problema na mesa.
 
 ## Verificação de desenvolvimento
 
@@ -53,6 +67,8 @@ npm run package
 Teste opcional de navegador: disponibilize o pacote Playwright no ambiente (ou `PLAYWRIGHT_PACKAGE` apontando para seu `index.mjs`), então execute `npm run test:browser`. `PLAYWRIGHT_CHANNEL=msedge` usa Edge instalado. A fixture usa um substituto do contrato ApplicationV2 e intercepta o iframe: verifica nosso ciclo de UI, **não** câmera/WebRTC nem o runtime real do Foundry.
 
 Teste optativo da UI oficial: `npm run test:official-ui` usa o mesmo Playwright para abrir `https://vdo.ninja/`, conferir a imagem incorporada e alternar o botão real do Director. O teste bloqueia WebSockets e não concede câmera/microfone; não valida transmissão de mídia ou visão entre participantes.
+
+`npm run test:official-layout` compara padrão, `structure&cover`, `cover` e uma sequência `rows` com 1–4 `fakeguests` nativos em áreas vertical/horizontal. Mede contêineres, salva JSON/capturas em `test-results/official-layout` e verifica o parser de Room/mini preview/PiP e o toggle Director. Usa o mesmo Playwright, bloqueia WebSockets e não concede dispositivos. É prova do renderizador e do parser servidos pelo VDO, sem Foundry autenticado ou peers reais.
 
 Para atualizar: saia do World, atualize o módulo no Setup e confirme **1.0.0**. Recarregue os navegadores do GM e dos jogadores (Ctrl+F5). Room, slots e preferências existentes são preservados; a configuração antiga mantém qualidade automática e nenhum avatar adicional da mesa. Não é necessário desinstalar nem gerar novos IDs.
 
