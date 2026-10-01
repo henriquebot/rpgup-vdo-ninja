@@ -15,7 +15,21 @@ function addExtras(url, world, { viewer = false } = {}) {
   }
 }
 
-export function participantURL(world, user, prefs = {}, users = [user], baseURL = globalThis.location?.href) {
+export function avatarSource(user, prefs = {}, baseURL = globalThis.location?.href) {
+  prefs = normalizePrefs(prefs);
+  if (prefs.avatar === "none") return null;
+  const image = prefs.avatar === "custom" ? prefs.avatarURL : user.avatar;
+  if (!image) {
+    if (prefs.avatar === "custom") throw new Error("Informe a URL da imagem do placeholder nas configurações da dock.");
+    return "default";
+  }
+  const avatar = new URL(image, baseURL);
+  if (!["http:", "https:"].includes(avatar.protocol) || avatar.username || avatar.password) throw new Error("Placeholder: use uma imagem por URL HTTP/HTTPS ou o avatar do usuário Foundry.");
+  if (new URL(baseURL ?? VDO_BASE).protocol === "https:" && avatar.protocol !== "https:") throw new Error("Placeholder: em Foundry HTTPS, use uma imagem HTTPS.");
+  return avatar.href;
+}
+
+export function participantURL(world, user, prefs = {}, users = [user], baseURL = globalThis.location?.href, preparedAvatar) {
   prefs = normalizePrefs(prefs);
   const { config, url } = configuredURL(world, users);
   const streamId = Object.hasOwn(config.slots, user.id) ? config.slots[user.id] : null;
@@ -25,29 +39,16 @@ export function participantURL(world, user, prefs = {}, users = [user], baseURL 
   if (config.directorUserId === user.id && user.isGM) {
     url.searchParams.set("director", config.roomId);
     url.searchParams.set("showdirector", "1");
+    url.searchParams.set("previewmode", "");
   }
   addExtras(url, config);
-  // vdo selects a default camera while keeping VDO's native camera chooser available.
-  url.searchParams.set("vdo", prefs.camera || "1");
-  if (prefs.interface === "mobile") url.searchParams.set("mobile", "");
-  if (prefs.interface === "desktop") url.searchParams.set("notmobile", "");
-  if (prefs.avatar !== "none") {
-    const image = prefs.avatar === "custom" ? prefs.avatarURL : user.avatar;
-    if (image) {
-      const avatar = new URL(image, baseURL);
-      if (!["http:", "https:"].includes(avatar.protocol) || avatar.username || avatar.password) throw new Error("Placeholder: use uma imagem por URL HTTP/HTTPS ou o avatar do usuário Foundry.");
-      if (new URL(baseURL ?? VDO_BASE).protocol === "https:" && avatar.protocol !== "https:") throw new Error("Placeholder: em Foundry HTTPS, use uma imagem HTTPS.");
-      url.searchParams.set("avatar", avatar.href);
-    } else if (prefs.avatar === "custom") throw new Error("Informe a URL da imagem do placeholder nas opções do dock.");
-    else url.searchParams.set("avatar", "default");
-  }
+  const avatar = preparedAvatar === undefined ? avatarSource(user, prefs, baseURL) : preparedAvatar;
+  if (avatar) url.searchParams.set("avatar", avatar);
   if (config.audio === "discord") {
     url.searchParams.set("audiodevice", "0");
     url.searchParams.set("noaudio", "");
   }
-  if (prefs.preview === "mini") url.searchParams.set("minipreview", "");
-  if (prefs.preview === "pip") url.searchParams.set("pipme", "");
-  // No autostart: pipme is incompatible and the native device/permission flow stays visible.
+  // Camera, mobile detection and self-preview are controlled only by the native VDO UI.
   return url.href;
 }
 

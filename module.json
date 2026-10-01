@@ -2,7 +2,7 @@
   "id": "rpgup-vdo-ninja",
   "title": "RPGUP VDO.Ninja — Protótipo de Room",
   "description": "Room oficial do VDO.Ninja em um dock ApplicationV2. Protótipo para Foundry v13 e v14, aguardando validação com câmeras e OBS.",
-  "version": "0.1.0-prototype.2",
+  "version": "0.1.0-prototype.3",
   "authors": [{ "name": "RPGUP" }],
   "compatibility": { "minimum": "13", "maximum": "14" },
   "esmodules": ["src/main.js"],

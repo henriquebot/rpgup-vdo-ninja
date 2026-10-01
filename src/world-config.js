@@ -1,7 +1,7 @@
 import { fillMissingSlots, validateWorld } from "./config.js";
 import { worldConfig, saveWorld } from "./settings.js";
 import { soloURL } from "./urls.js";
-import { element, select, field, report } from "./dom.js";
+import { element, select, field, tooltip, report } from "./dom.js";
 
 export class WorldConfig extends foundry.applications.api.ApplicationV2 {
   static instance;
@@ -43,10 +43,12 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     const director = select(directors, config.directorUserId, "directorUserId");
     form.append(
       element("p", "Protótipo: 1 GM e 2 jogadores. As alterações entram em vigor quando cada cliente reconectar."),
-      field("Room ID compartilhada", room), field("Parâmetros adicionais", extra),
+      field("Room ID compartilhada", room, "Nome da sala VDO usada por todos os participantes deste World. Use 1–49 letras ou números; maiúsculas fazem diferença. Mudar a Room exige reconectar e atualizar os links OBS."),
+      field("Parâmetros adicionais", extra, "Opções oficiais permitidas, como password=Senha123. Deixe vazio para usar os padrões. Não informe uma URL completa; esses valores são compartilhados com os usuários do World."),
       element("p", "Permitidos: password, roombitrate, totalroombitrate, videobitrate, codec, width, height e fps. Room/Stream IDs e labels são definidos pelo Foundry."),
-      field("Áudio", audio), field("GM como Director (teste opcional)", director),
-      element("p", "Director usa o mesmo iframe, com push estável e showdirector. Os poderes VDO são nativos; ser GM Foundry não autentica o Director no VDO.Ninja.")
+      field("Áudio", audio, "Discord desativa microfone e reprodução de áudio do VDO. Áudio VDO permite seus controles nativos. Todos precisam reconectar após mudar; evite ouvir a mesma voz pelos dois serviços."),
+      field("GM como Director (teste opcional)", director, "Escolha um GM para usar o painel de direção no mesmo iframe. Ele começa em Scene Preview; Toggle Director Vision alterna cena/painel. A opção vazia mantém todos como participantes comuns."),
+      element("p", "Director usa o mesmo iframe, com push estável e showdirector. Inicia em Scene Preview; 🪟 Toggle Director Vision alterna cena/painel. Os poderes VDO são nativos; ser GM Foundry não autentica o Director no VDO.Ninja.")
     );
     const table = element("table");
     const head = element("tr");
@@ -60,6 +62,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
       const name = element("td", `${user.name}${user.isGM ? " (GM)" : ""}`);
       name.append(element("small", user.id));
       const slot = element("input", undefined, { maxlength: "64", pattern: "[A-Za-z0-9_]+", "aria-label": `Stream ID de ${user.name}` });
+      tooltip(slot, "ID de publicação estável deste usuário: 1–64 letras, números ou underscore. Não deve se repetir. Gere os faltantes ou informe um ID; deixe vazio para desassociar. Salve para aplicar.");
       slot.value = config.slots[user.id] ?? "";
       this._inputs.set(user.id, slot);
       const slotCell = element("td");
@@ -68,9 +71,11 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
       try {
         const url = soloURL(savedConfig, user.id, users);
         const link = element("input", undefined, { readonly: "", "aria-label": `Solo link OBS de ${user.name}` });
+        tooltip(link, "URL individual baseada na configuração salva. Cole numa Browser Source do OBS. Clique para selecionar; alterações não salvas ainda não aparecem neste link.");
         link.value = url;
         link.addEventListener("click", () => link.select());
         const copy = element("button", "Copiar", { type: "button" });
+        tooltip(copy, "Copiar o solo link salvo deste usuário para usar no OBS.");
         copy.addEventListener("click", async () => {
           try {
             await navigator.clipboard.writeText(url);
@@ -90,6 +95,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     }
     table.append(thead, body);
     const generate = element("button", "Gerar e salvar slots faltantes", { type: "button" });
+    tooltip(generate, "Criar IDs somente para usuários que ainda não têm slot e salvar a Room e as associações no World. IDs existentes são preservados.");
     generate.addEventListener("click", async () => {
       if (this._saving) return;
       // A player may have been created after this panel opened.
@@ -102,6 +108,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
       try { await this.saveDraft(); } catch (error) { this._notice.textContent = `Não salvo: ${error.message}`; report(error); }
     });
     const save = element("button", "Salvar configuração", { type: "submit" });
+    tooltip(save, "Salvar Room, áudio, Director e IDs no World. Usuários aguardando um ID entram na sala; quem já está conectado precisa aplicar/reconectar.");
     const obsNotice = element("p", "Links OBS refletem os valores já salvos. Mudanças de Room, senha ou Stream ID exigem atualizar a fonte OBS. Não compartilhe links de uma Room privada.", { role: "status" });
     this._notice = obsNotice;
     form.addEventListener("input", () => {

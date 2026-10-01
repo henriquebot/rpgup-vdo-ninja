@@ -12,9 +12,16 @@ export function select(options, value, name) {
   return node;
 }
 
-export function field(label, control) {
+export function tooltip(node, text) {
+  node.title = text;
+  node.dataset.tooltip = text;
+  return node;
+}
+
+export function field(label, control, help) {
   const node = element("label", undefined, { class: "rpgup-field" });
   node.append(element("span", label), control);
+  if (help) tooltip(control, help);
   return node;
 }
 

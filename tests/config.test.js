@@ -24,13 +24,12 @@ test("1 GM e 2 jogadores entram na mesma Room com labels e push do Foundry", () 
   }
 });
 
-test("reconexões e mudanças de preview não alteram os slots", () => {
+test("reconexões preservam slots e ignoram overrides antigos de câmera/interface/preview", () => {
   const before = structuredClone(world);
   for (const preview of ["native", "mini", "pip"]) {
-    const url = new URL(participantURL(world, users[1], { preview }, users));
+    const url = new URL(participantURL(world, users[1], { preview, camera: "OBS", interface: "mobile" }, users));
     assert.equal(url.searchParams.get("push"), world.slots.p1);
-    assert.equal(url.searchParams.has("pipme"), preview === "pip");
-    assert.equal(url.searchParams.has("minipreview"), preview === "mini");
+    for (const key of ["pipme", "minipreview", "vdo", "mobile", "notmobile"]) assert.equal(url.searchParams.has(key), false);
     assert.equal(url.searchParams.has("view"), false);
     assert.equal(url.searchParams.has("autostart"), false);
   }
@@ -79,8 +78,10 @@ test("Director designado usa o mesmo stream; demais usuários seguem como guests
   assert.equal(gm.searchParams.get("director"), world.roomId);
   assert.equal(gm.searchParams.get("push"), world.slots.gm1);
   assert.equal(gm.searchParams.get("showdirector"), "1");
+  assert.equal(gm.searchParams.has("previewmode"), true);
   const guest = new URL(participantURL(directorWorld, users[1], {}, users));
   assert.equal(guest.searchParams.has("director"), false);
+  assert.equal(guest.searchParams.has("previewmode"), false);
 });
 
 test("OBS gera solo/view do slot certo, com Room/senha e sem publicar nem capturar", () => {
@@ -108,24 +109,24 @@ test("preferências e geometria são normalizadas sem escapar da viewport", () =
   }
 });
 
-test("câmera padrão, avatar Foundry e interface móvel usam parâmetros oficiais sem afetar identidade", () => {
+test("avatar Foundry/customizado é validado e a miniatura preparada usa o parâmetro oficial", () => {
   const gm = { ...users[0], avatar: "users/henrique.webp" };
   const defaultURL = new URL(participantURL(world, gm, {}, users, "https://foundry.example/game"));
-  assert.equal(defaultURL.searchParams.get("vdo"), "1");
   assert.equal(defaultURL.searchParams.get("avatar"), "https://foundry.example/users/henrique.webp");
   const custom = new URL(participantURL(world, gm, {
     camera: "OBS Virtual Camera", interface: "mobile", avatar: "custom", avatarURL: "https://images.example/a.webp?x=1&y=2"
   }, users));
-  assert.equal(custom.searchParams.get("vdo"), "OBS Virtual Camera");
   assert.equal(custom.searchParams.get("avatar"), "https://images.example/a.webp?x=1&y=2");
-  assert.ok(custom.searchParams.has("mobile"));
+  assert.equal(custom.searchParams.has("mobile"), false);
   assert.equal(custom.searchParams.has("notmobile"), false);
   const desktop = new URL(participantURL(world, gm, { interface: "desktop", avatar: "none" }, users));
-  assert.ok(desktop.searchParams.has("notmobile"));
+  assert.equal(desktop.searchParams.has("notmobile"), false);
   assert.equal(desktop.searchParams.has("avatar"), false);
   assert.equal(custom.searchParams.get("push"), world.slots.gm1);
+  const prepared = new URL(participantURL(world, gm, {}, users, "https://foundry.example/game", "data:image/webp;base64,AA=="));
+  assert.equal(prepared.searchParams.get("avatar"), "data:image/webp;base64,AA==");
   const obs = new URL(soloURL(world, gm.id, users));
-  for (const key of ["avatar", "vdo", "mobile", "notmobile"]) assert.equal(obs.searchParams.has(key), false);
+  for (const key of ["avatar", "vdo", "mobile", "notmobile", "previewmode"]) assert.equal(obs.searchParams.has(key), false);
   for (const image of ["javascript:alert(1)", "blob:https://foundry.example/id", "https://user:password@example.com/a.webp", "http://example.com/a.webp"]) {
     assert.throws(() => participantURL(world, gm, { avatar: "custom", avatarURL: image }, users, "https://foundry.example/game"), /Placeholder/);
   }

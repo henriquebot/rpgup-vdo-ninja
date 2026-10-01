@@ -1,9 +1,9 @@
 .rpgup-vdo .window-content { overflow: auto; padding: 10px; }
 .rpgup-room-dock { min-width: 0; min-height: 0; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
 .rpgup-room-dock .window-content { display: flex; flex: 1; min-height: 0; padding: 0; overflow: hidden; }
-.rpgup-room-body { display: flex; flex: 1; flex-direction: column; height: 100%; min-height: 0; min-width: 0; }
+.rpgup-room-body { position: relative; display: flex; flex: 1; flex-direction: column; height: 100%; min-height: 0; min-width: 0; }
+.rpgup-vdo [hidden] { display: none !important; }
 .rpgup-toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: end; padding: 8px; flex-shrink: 0; }
-.rpgup-room-body > .rpgup-toolbar { max-height: 35%; overflow: auto; }
 .rpgup-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .rpgup-field span { font-size: 12px; }
 .rpgup-toolbar select { max-width: 220px; }
@@ -13,11 +13,15 @@
 .rpgup-frame-host iframe { position: absolute; top: 0; left: 0; border: 0; display: block; width: 100%; height: 100%; transform-origin: top left; }
 .rpgup-zoom { display: flex; gap: 2px; }
 .rpgup-zoom button { min-width: 28px; }
-.rpgup-options { flex: 0 1 auto; min-height: 24px; max-height: 35%; overflow: auto; padding: 2px 8px; }
-.rpgup-options summary { cursor: pointer; font-size: 12px; }
-.rpgup-options p { font-size: 12px; margin: 4px 0; }
+.rpgup-settings { flex: 0 1 auto; min-height: 0; max-height: 60%; overflow: auto; padding: 4px 8px; }
+.rpgup-settings p { font-size: 12px; margin: 4px 0; }
+.rpgup-settings > .rpgup-toolbar { padding: 4px 0; }
+.rpgup-settings .rpgup-status { max-height: none; padding: 0; }
+.rpgup-avatar-preview { width: 48px; height: 48px; object-fit: contain; border: 0; }
+.rpgup-connection-alert { position: absolute; top: 12px; left: 12px; right: 12px; margin: 0; padding: 10px; background: #17191de8; color: #fff; }
+.rpgup-room-dock .rpgup-attention { color: var(--color-level-warning, #e9b35a); }
 .rpgup-preferences { padding: 6px 0; }
-.rpgup-preferences input[type="text"], .rpgup-preferences input[type="url"] { width: 200px; max-width: 100%; }
+.rpgup-preferences input[type="url"] { width: 200px; max-width: 100%; }
 /* The canvas remains full-screen; controls/navigation/sidebar occupy the free UI area.
    Margins compose with the native AV dock's flex layout. Only active while ours docks. */
 body.rpgup-vdo-docked #interface {

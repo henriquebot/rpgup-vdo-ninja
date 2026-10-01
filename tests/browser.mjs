@@ -8,9 +8,15 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const { chromium } = await import(process.env.PLAYWRIGHT_PACKAGE ? pathToFileURL(process.env.PLAYWRIGHT_PACKAGE).href : "playwright");
 const root = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 const mime = { ".js": "text/javascript", ".mjs": "text/javascript", ".html": "text/html", ".css": "text/css" };
+const avatarSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" fill="#285b8a"/><circle cx="64" cy="64" r="42" fill="#e9b35a"/></svg>';
 const server = createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
+    if (pathname === "/tests/users/avatar-gm.webp") {
+      response.setHeader("Content-Type", "image/svg+xml");
+      response.end(avatarSVG); // No CORS header, like the user's Foundry assets.
+      return;
+    }
     const file = path.resolve(root, "." + pathname);
     if (!file.startsWith(root + path.sep) && file !== root) throw new Error("Path outside fixture");
     response.setHeader("Content-Type", mime[path.extname(file)] ?? "text/plain");
@@ -21,10 +27,15 @@ await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 const base = `http://127.0.0.1:${server.address().port}`;
 let browser;
 let navigations = 0;
+async function openSettings(page) {
+  const button = page.getByRole("button", { name: "Configurações da dock", exact: true });
+  if (await button.getAttribute("aria-expanded") === "false") await button.click();
+}
 try {
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}) });
   console.log(`Chromium ${browser.version()}; ApplicationV2 fixture; VDO iframe interceptado, sem câmera/rede de mídia.`);
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await context.route("https://images.example/**", route => route.fulfill({ contentType: "image/svg+xml", headers: { "Access-Control-Allow-Origin": "*" }, body: avatarSVG.replace("#e9b35a", "#eb4747") }));
   await context.route("https://vdo.ninja/**", route => {
     navigations++;
     return route.fulfill({ contentType: "text/html", body: "<title>VDO fixture</title><p>Iframe controlado, sem mídia</p>" });
@@ -34,11 +45,23 @@ try {
   page.on("pageerror", error => errors.push(error.message));
   await page.goto(base + "/tests/harness.html");
   await page.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
+  assert.equal(await page.locator("#rpgup-vdo-settings").isVisible(), false);
+  assert.equal(await page.locator(".window-header [data-action=toggleModuleSettings]").count(), 1);
+  assert.equal(await page.locator(".window-header [data-action=undock]").count(), 1);
+  assert.equal(await page.locator(".window-header [data-action=toggleModuleSettings]").innerText(), "");
+  const closedHost = await page.locator(".rpgup-frame-host").boundingBox();
+  assert.ok(closedHost.height >= 560, "Controles escondidos deixam a sala ocupar toda a janela");
+  await openSettings(page);
   await page.locator(".rpgup-status").filter({ hasText: "Documento do iframe" }).waitFor();
   assert.equal(await page.locator("iframe").count(), 1);
   const initial = navigations;
   const initialURL = await page.locator("iframe").getAttribute("src");
   assert.equal(new URL(initialURL).searchParams.get("push"), "slot_gm");
+  assert.ok(new URL(initialURL).searchParams.get("avatar").startsWith("data:image/webp;base64,"), "Avatar sem CORS vira uma imagem autossuficiente");
+  assert.ok(initialURL.length < 8000);
+  assert.equal(await page.locator('[name="Câmera padrão"], [name="Interface VDO"], [name="Self-preview"]').count(), 0);
+  assert.match(await page.getByRole("checkbox").getAttribute("title"), /não liga sua câmera/);
+  assert.match(await page.getByRole("combobox", { name: "Placeholder", exact: true }).getAttribute("data-tooltip"), /cada sessão/);
   assert.equal((await page.locator("iframe").getAttribute("allow")).includes("microphone"), false);
   assert.equal(await page.locator("iframe").getAttribute("sandbox"), null);
   for (const dock of ["left", "right", "top", "bottom", "floating"]) {
@@ -56,47 +79,54 @@ try {
   await page.evaluate(async () => { await fixture.menu("openDock"); await fixture.menu("openDock"); });
   assert.equal(await page.locator("iframe").count(), 1);
   assert.equal(navigations, initial, "Dock/rerender não deve navegar ou recriar o iframe");
+  await page.getByRole("combobox", { name: "Posição do dock", exact: true }).selectOption("left");
+  await page.getByRole("button", { name: "Desacoplar janela", exact: true }).click();
+  assert.equal(await page.getByRole("combobox", { name: "Posição do dock", exact: true }).inputValue(), "floating");
+  assert.equal(navigations, initial, "Desacoplar não deve recarregar a sala");
   await page.getByRole("button", { name: "Diminuir zoom", exact: true }).click();
   await page.getByRole("button", { name: "Diminuir zoom", exact: true }).click();
   assert.equal(await page.locator("iframe").evaluate(node => node.style.transform), "scale(0.8)");
   assert.equal(navigations, initial, "Zoom não deve recarregar a sala");
-  await page.locator("summary").click();
-  await page.getByRole("textbox", { name: "Câmera padrão", exact: true }).fill("OBS Virtual Camera");
   await page.getByRole("combobox", { name: "Placeholder", exact: true }).selectOption("custom");
   await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).fill("https://images.example/avatar.webp");
-  await page.getByRole("combobox", { name: "Interface VDO", exact: true }).selectOption("mobile");
-  await page.locator("summary").click();
-  await page.getByRole("combobox", { name: "Self-preview", exact: true }).selectOption("pip");
   assert.equal(await page.locator("iframe").getAttribute("src"), initialURL);
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
-  await page.waitForFunction(() => new URL(document.querySelector("iframe").src).searchParams.has("pipme"));
+  await page.waitForFunction(previous => document.querySelector("iframe").src !== previous, initialURL);
   await page.locator(".rpgup-status").filter({ hasText: "Documento do iframe" }).waitFor();
   assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.has("view"), false);
   await page.getByRole("button", { name: "World / OBS", exact: true }).click();
   await page.locator(".rpgup-config-form").waitFor();
+  assert.match(await page.getByRole("combobox", { name: "directorUserId", exact: true }).getAttribute("data-tooltip"), /Scene Preview/);
   assert.equal(await page.getByRole("textbox", { name: "Solo link OBS", exact: false }).count(), 3);
   await page.getByRole("combobox", { name: "audio", exact: true }).selectOption("vdo");
   await page.getByRole("combobox", { name: "directorUserId", exact: true }).selectOption("gm1");
   await page.getByRole("button", { name: "Salvar configuração", exact: true }).click();
   await page.waitForFunction(() => fixture.config().audio === "vdo");
   const appliedURL = await page.locator("iframe").getAttribute("src");
-  assert.equal(new URL(appliedURL).searchParams.get("vdo"), "OBS Virtual Camera");
-  assert.equal(new URL(appliedURL).searchParams.get("avatar"), "https://images.example/avatar.webp");
-  assert.ok(new URL(appliedURL).searchParams.has("mobile"));
+  assert.equal(new URL(appliedURL).searchParams.has("vdo"), false);
+  assert.ok(new URL(appliedURL).searchParams.get("avatar").startsWith("data:image/webp;base64,"));
+  assert.equal(new URL(appliedURL).searchParams.has("mobile"), false);
+  assert.equal(await page.evaluate(async () => (await fixture.dock()).prefs.avatarURL), "https://images.example/avatar.webp");
   await page.evaluate(() => fixture.closeConfig());
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(() => document.querySelector("iframe").allow.includes("microphone"));
   const director = new URL(await page.locator("iframe").getAttribute("src"));
   assert.equal(director.searchParams.get("director"), "FixtureRoom123");
   assert.equal(director.searchParams.get("push"), "slot_gm");
+  assert.ok(director.searchParams.has("previewmode"));
+  assert.equal(await page.evaluate(() => notices.filter(notice => notice.value.includes("Toggle Director Vision")).length), 1);
   await page.evaluate(async () => { await (await fixture.dock()).close(); await fixture.menu("openDock"); });
+  await page.waitForFunction(() => document.querySelector("iframe"));
   assert.equal(await page.locator("iframe").count(), 1);
   await page.reload();
   await page.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
-  assert.equal(await page.getByRole("combobox", { name: "Self-preview", exact: true }).inputValue(), "pip");
+  assert.equal(await page.locator("#rpgup-vdo-settings").isVisible(), false);
+  await openSettings(page);
   assert.equal(await page.getByRole("combobox", { name: "Posição do dock", exact: true }).inputValue(), "floating");
   assert.equal(await page.locator("iframe").evaluate(node => node.style.transform), "scale(0.8)");
-  assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar"), "https://images.example/avatar.webp");
+  assert.equal(await page.getByRole("combobox", { name: "Placeholder", exact: true }).inputValue(), "custom");
+  assert.equal(await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).inputValue(), "https://images.example/avatar.webp");
+  assert.ok(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar").startsWith("data:image/webp;base64,"));
   assert.deepEqual(errors, []);
   console.log("GM: singleton, cinco posições, iframe preservado, rejoin, persistência e painel OBS: OK.");
 
@@ -107,7 +137,7 @@ try {
   await guest.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
   assert.equal(await guest.getByRole("button", { name: "World / OBS", exact: true }).count(), 0);
   assert.equal(new URL(await guest.locator("iframe").getAttribute("src")).searchParams.get("push"), "slot_a");
-  assert.equal(await guest.getByRole("combobox", { name: "Self-preview", exact: true }).inputValue(), "native");
+  assert.equal(await guest.locator('[name="Self-preview"]').count(), 0);
   const denied = await guest.evaluate(async () => {
     try { await fixture.menu("worldConfig"); return false; } catch (error) { return error.message.includes("GM"); }
   });
@@ -140,6 +170,7 @@ try {
   await page.evaluate(() => fixture.closeConfig());
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   assert.equal((await page.evaluate(() => fixture.config().slots)).p2, generated.p2, "Reconnect nunca recria slots");
+  await openSettings(guest);
   await guest.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await guest.waitForFunction(() => new URL(document.querySelector("iframe").src).searchParams.get("push") === "player_custom");
   await guest.reload();
@@ -179,6 +210,62 @@ try {
   await page.evaluate(() => fixture.closeConfig());
   console.log("Usuário criado com painel aberto: lista atualizada, rascunho preservado e slot salvo: OK.");
 
+  await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).fill(base + "/missing-avatar.svg");
+  await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
+  await page.waitForFunction(() => notices.some(notice => notice.value.includes("HTTP 404")));
+  assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar"), "default");
+  assert.match(await page.locator(".rpgup-avatar-status").innerText(), /não aplicado/);
+  await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).fill("file:///invalid-avatar.svg");
+  await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
+  await page.waitForFunction(() => notices.some(notice => notice.value.includes("use uma imagem por URL HTTP/HTTPS")));
+  assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar"), "default");
+  await page.getByRole("combobox", { name: "Placeholder", exact: true }).selectOption("foundry");
+  await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
+  await page.waitForFunction(() => new URL(document.querySelector("iframe").src).searchParams.get("avatar")?.startsWith("data:image/"));
+  const foundryImage = new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar");
+  assert.equal(foundryImage, new URL(initialURL).searchParams.get("avatar"));
+  await page.reload();
+  await page.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
+  assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar"), foundryImage);
+  assert.equal(await page.locator("#rpgup-vdo-settings").isVisible(), false);
+  assert.equal(await page.locator(".rpgup-director-help").isVisible(), false);
+  console.log("Avatar Foundry sem CORS: miniatura aplicada e reaplicada após reload; erro de imagem tem aviso explícito: OK.");
+
+  const autoPage = await context.newPage();
+  await autoPage.goto(base + "/tests/harness.html?user=p2");
+  await autoPage.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
+  await openSettings(autoPage);
+  await autoPage.getByRole("checkbox").uncheck();
+  await autoPage.evaluate(async () => { await (await fixture.dock())._persist(); });
+  await autoPage.reload();
+  await autoPage.waitForFunction(() => globalThis.fixtureReady);
+  assert.equal(await autoPage.locator("#rpgup-vdo-room").count(), 0);
+  await autoPage.evaluate(() => fixture.menu("openDock"));
+  await autoPage.waitForFunction(() => document.querySelector("iframe"));
+  console.log("Abrir ao entrar: desmarcar impede abertura no próximo login; menu reabre manualmente: OK.");
+
+  // Closing during image preparation must cancel the old connection, while an
+  // immediate reopen can start its own image fetch and create exactly one frame.
+  let heldAvatar;
+  await autoPage.route(base + "/delayed-avatar.svg", route => {
+    if (!heldAvatar) { heldAvatar = route; return; }
+    return route.fulfill({ contentType: "image/svg+xml", body: avatarSVG });
+  });
+  const firstAvatarRequest = autoPage.waitForRequest(base + "/delayed-avatar.svg");
+  await autoPage.evaluate(async () => {
+    await (await fixture.dock()).close();
+    game.user.avatar = "/delayed-avatar.svg";
+    await fixture.menu("openDock");
+  });
+  await firstAvatarRequest;
+  assert.equal(await autoPage.locator("iframe").count(), 0);
+  await autoPage.evaluate(async () => { await (await fixture.dock()).close(); await fixture.menu("openDock"); });
+  await autoPage.waitForFunction(() => document.querySelector("iframe"));
+  assert.equal(await autoPage.locator("iframe").count(), 1);
+  assert.ok(new URL(await autoPage.locator("iframe").getAttribute("src")).searchParams.get("avatar").startsWith("data:image/"));
+  await heldAvatar.abort().catch(() => {});
+  console.log("Avatar pendente: fechar cancela; reabrir imediatamente cria somente uma sala: OK.");
+
   for (const viewport of [{ width: 900, height: 650 }, { width: 390, height: 640 }, { width: 360, height: 280 }]) {
     await page.setViewportSize(viewport);
     const host = await page.locator(".rpgup-frame-host").boundingBox();
@@ -191,7 +278,7 @@ try {
   await page.evaluate(async () => { await (await fixture.dock()).close(); });
   assert.equal(await page.locator("body").evaluate(node => node.classList.contains("rpgup-vdo-docked")), false);
   assert.equal(await page.locator("body").evaluate(node => node.style.getPropertyValue("--rpgup-vdo-left")), "");
-  console.log("Zoom, preferências de câmera/avatar/modo, reserva da UI e resize pequeno: OK.");
+  console.log("Cabeçalho, tooltips, opções recolhidas, zoom, avatar, reserva da UI e resize pequeno: OK.");
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));
