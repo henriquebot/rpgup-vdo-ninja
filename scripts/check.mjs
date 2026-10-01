@@ -8,6 +8,9 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const manifest = JSON.parse(await readFile(path.join(root, "module.json"), "utf8"));
 assert.equal(manifest.id, "rpgup-vdo-ninja");
 assert.deepEqual(manifest.compatibility, { minimum: "13", maximum: "14" });
+assert.equal(manifest.version, JSON.parse(await readFile(path.join(root, "package.json"), "utf8")).version);
+assert.equal(manifest.manifest, "https://raw.githubusercontent.com/henriquebot/rpgup-vdo-ninja/main/module.json");
+assert.equal(manifest.download, `https://github.com/henriquebot/rpgup-vdo-ninja/releases/download/${manifest.version}/rpgup-vdo-ninja.zip`);
 for (const entry of [...manifest.esmodules, ...manifest.styles]) await readFile(path.join(root, entry));
 for (const dir of ["src", "scripts", "tests"]) {
   for (const file of await readdir(path.join(root, dir))) {

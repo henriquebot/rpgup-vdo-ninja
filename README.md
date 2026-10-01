@@ -9,13 +9,15 @@ A arquitetura vigente está em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). A p
 ## Instalar o protótipo
 
 1. Use um World separado para testes na v13 e outro na v14. Não atualize a geração do servidor para instalar este módulo.
-2. Com Node.js 20+, execute `npm run package`. Copie a pasta gerada `dist/rpgup-vdo-ninja` para `<User Data>/Data/modules/rpgup-vdo-ninja` do respectivo servidor. O protótipo não instala dependências de runtime nem exige build.
-3. Reinicie o Foundry quando necessário para detectar o módulo. No World de teste, habilite **RPGUP VDO.Ninja — Protótipo de Room** em Gerenciar módulos.
+2. No Setup do Foundry → Módulos → Instalar módulo, cole o manifest: `https://raw.githubusercontent.com/henriquebot/rpgup-vdo-ninja/main/module.json`. O Foundry baixa o pacote publicado em Releases. O módulo não instala dependências de runtime nem exige build.
+3. No World de teste, habilite **RPGUP VDO.Ninja — Protótipo de Room** em Gerenciar módulos.
 4. GM: Configurações → Configurar opções → **RPGUP VDO.Ninja — World e fontes OBS**. Informe a Room, escolha áudio, gere os slots faltantes e salve. Use três usuários (1 GM e 2 jogadores) nesta primeira prova.
 5. Cada cliente: **Abrir dock de câmeras**, nas opções do módulo. Clique em **Aplicar / reconectar** se o dock foi aberto antes da configuração. A entrada na Room usa automaticamente o slot e nome do usuário Foundry; a ativação da câmera e a permissão são feitas na UI nativa.
 6. GM: copie o solo link salvo de cada usuário para uma Browser Source OBS. Faça o roteiro de [docs/PROTOTYPE-RESULTS.md](docs/PROTOTYPE-RESULTS.md) e registre os resultados separadamente para cada geração.
 
-Instale só os arquivos empacotados. O ZIP, quando fornecido, contém a pasta `rpgup-vdo-ninja` pronta para `Data/modules`. Nesta fase a instalação é manual; não há URL de manifest/download de release, e o ZIP de código-fonte do GitHub não é o pacote do módulo.
+O [repositório](https://github.com/henriquebot/rpgup-vdo-ninja) contém o código e a documentação vigentes na branch `main`. [Releases](https://github.com/henriquebot/rpgup-vdo-ninja/releases) publica `module.json` e o pacote de instalação, com manifest na raiz do arquivo. O ZIP automático de código-fonte do GitHub não é o pacote do módulo.
+
+Para instalação manual de desenvolvimento, execute `npm run package` com Node.js 20+ e copie `dist/rpgup-vdo-ninja` para `<User Data>/Data/modules/rpgup-vdo-ninja`. A workflow de publicação testa, confere o manifest, empacota e publica uma pré-release ao atualizar o código na `main`. Novas versões precisam alterar `version` em `module.json`/`package.json` e o segmento da versão em `download`; uma release existente não é sobrescrita.
 
 ## Uso e limites
 

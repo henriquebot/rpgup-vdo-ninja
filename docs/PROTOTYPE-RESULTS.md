@@ -84,7 +84,7 @@ O módulo lembra o tipo de preview; **não implementa persistência de posição
 ## Roteiro de prova real
 
 1. Crie/abra um World separado de testes em `https://v14.rpgup.com.br/`; use 1 GM e 2 usuários jogadores. Depois repita na v13. Não atualize geração nem migre campanha para realizar a prova.
-2. Instale a pasta empacotada em `Data/modules/rpgup-vdo-ninja` e habilite o módulo somente nesse World. Registre `game.version`, sistema e módulos habilitados. Abra por HTTPS em três navegadores/perfis/dispositivos; idealmente três pessoas/dispositivos com câmeras. Múltiplas abas com o mesmo usuário/slot provocam conflito de publicação.
+2. Instale pelo manifest `https://raw.githubusercontent.com/henriquebot/rpgup-vdo-ninja/main/module.json` no Setup → Módulos → Instalar módulo e habilite somente nesse World. Registre `game.version`, sistema e módulos habilitados. Abra por HTTPS em três navegadores/perfis/dispositivos; idealmente três pessoas/dispositivos com câmeras. Múltiplas abas com o mesmo usuário/slot provocam conflito de publicação.
 3. GM: configure uma Room de teste com ID distinto de outras sessões, senha opcional e slots para os três usuários. Guarde a associação; não gere novos IDs durante reconexões. Outros usuários do World podem ficar sem slot.
 4. Entre nos três clientes e aplique/reconecte. Selecione câmera e confirme permissão na UI nativa. Teste permissão negada e depois autorizada. Registre qual origem pediu permissão, mensagens/erros, política do documento pai e se microfone foi solicitado no modo Discord.
 5. Verifique os seis caminhos de vídeo: GM vê A/B; A vê GM/B; B vê GM/A. Desligue/ligue uma câmera e recarregue um cliente. Confirme mesmo slot e reconexão; registre atrasos/falhas.
