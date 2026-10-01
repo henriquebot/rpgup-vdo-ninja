@@ -3,12 +3,16 @@
 <title>RPGUP — fixture de teste, sem Foundry real</title>
 <link rel="stylesheet" href="/styles/module.css">
 <style>
-body { margin: 0; height: 100vh; font-family: sans-serif; background: #30343d; color: #eee; }
+body { position: fixed; display: flex; margin: 0; width: 100vw; height: 100vh; font-family: sans-serif; background: #30343d; color: #eee; }
+#interface { display: flex; flex: 1; position: relative; }
+#ui-left { position: absolute; left: 0; }
+#ui-right { position: absolute; right: 0; }
 .application { position: absolute; background: #454b58; display: flex; flex-direction: column; }
 .window-header { height: 30px; flex-shrink: 0; background: #252830; }
 .window-content { flex: 1; min-height: 0; }
 input, select, button { font: inherit; }
 </style>
+<div id="interface"><div id="ui-left">Controles Foundry</div><div id="ui-right">Sidebar Foundry</div></div>
 <script type="module">
 // A small documented-contract fixture. It does NOT emulate a complete Foundry runtime.
 const handlers = new Map();
@@ -19,17 +23,18 @@ globalThis.Hooks = {
 };
 const prefs = {};
 const users = [
-  { id: "gm1", name: "GM Teste", isGM: true },
+  { id: "gm1", name: "GM Teste", isGM: true, avatar: "users/avatar-gm.webp" },
   { id: "p1", name: "Jogador A", isGM: false },
   { id: "p2", name: "Jogador B", isGM: false }
 ].map(user => ({ ...user,
   getFlag() { return prefs[user.id] ?? JSON.parse(localStorage.getItem(`prefs-${user.id}`) ?? "null"); },
-  async setFlag(scope, key, value) { prefs[user.id] = structuredClone(value); localStorage.setItem(`prefs-${user.id}`, JSON.stringify(value)); }
+  async setFlag(scope, key, value) { prefs[user.id] = structuredClone(value); localStorage.setItem(`prefs-${user.id}`, JSON.stringify(value)); Hooks.callAll("updateUser", this, { flags: { [scope]: { [key]: value } } }); }
 }));
 let config = {
   roomId: "FixtureRoom123", extraQuery: "password=Fixture123", audio: "discord", directorUserId: "",
   slots: { gm1: "slot_gm", p1: "slot_a", p2: "slot_b" }
 };
+config = JSON.parse(localStorage.getItem("world-config") ?? "null") ?? config;
 const registered = new Map();
 const menus = new Map();
 globalThis.notices = [];
@@ -40,10 +45,22 @@ globalThis.game = {
   settings: {
     register(scope, key, value) { registered.set(key, value); },
     registerMenu(scope, key, value) { menus.set(key, value); },
-    get() { return structuredClone(config); },
-    async set(scope, key, value) { config = structuredClone(value); registered.get(key)?.onChange?.(value); return value; }
+    get() { return config; }, // Foundry returns the live Setting value, not a draft clone.
+    async set(scope, key, value) {
+      if (!game.user.isGM) throw new Error("World setting: GM required");
+      if (fixture.failSave) throw new Error("Fixture: gravação recusada");
+      config = structuredClone(value);
+      localStorage.setItem("world-config", JSON.stringify(config));
+      registered.get(key)?.onChange?.(config);
+      return config;
+    }
   }
 };
+window.addEventListener("storage", event => {
+  if (event.key !== "world-config") return;
+  config = JSON.parse(event.newValue);
+  registered.get("world")?.onChange?.(config);
+});
 const applications = [];
 class ApplicationV2 {
   constructor(options = {}) { this.options = { ...this.constructor.DEFAULT_OPTIONS, ...options }; this.position = { ...this.options.position }; applications.push(this); }
@@ -84,7 +101,8 @@ globalThis.fixture = {
   config: () => structuredClone(config),
   menu: key => new (menus.get(key).type)().render({ force: true }),
   async closeConfig() { for (const app of applications) if (app.rendered && app.options.id === "rpgup-vdo-world-config") await app.close(); },
-  async dock() { return (await import("/src/room-dock.js")).RoomDock.instance; }
+  async dock() { return (await import("/src/room-dock.js")).RoomDock.instance; },
+  async setConfig(value) { return game.settings.set("rpgup-vdo-ninja", "world", value); }
 };
 globalThis.fixtureReady = true;
 </script>

@@ -1,11 +1,24 @@
 import { MODULE_ID, DEFAULT_WORLD, normalizePrefs } from "./config.js";
 
 export function worldConfig() {
-  return game.settings.get(MODULE_ID, "world");
+  // Settings returns the live Setting value. A panel must never edit that cache.
+  return structuredClone(game.settings.get(MODULE_ID, "world"));
+}
+
+export async function saveWorld(config) {
+  if (!game.user.isGM) throw new Error("Somente o GM pode salvar configurações.");
+  await game.settings.set(MODULE_ID, "world", structuredClone(config));
+  const saved = worldConfig();
+  if (JSON.stringify(saved) !== JSON.stringify(config)) {
+    throw new Error("O Foundry não confirmou o salvamento da Room e dos slots. Reabra o painel para conferir os dados.");
+  }
+  return saved;
 }
 
 export function userPrefs() {
-  return normalizePrefs(game.user.getFlag(MODULE_ID, "preferences"));
+  const prefs = game.user.getFlag(MODULE_ID, "preferences");
+  // The first prototype defaulted to a screen-covering right dock. Switch once.
+  return normalizePrefs(prefs && prefs.schemaVersion !== 2 ? { ...prefs, dock: "floating" } : prefs);
 }
 
 export function savePrefs(prefs) {

@@ -1,14 +1,21 @@
-import { MODULE_ID, fillMissingSlots, validateWorld } from "./config.js";
-import { worldConfig } from "./settings.js";
+import { fillMissingSlots, validateWorld } from "./config.js";
+import { worldConfig, saveWorld } from "./settings.js";
 import { soloURL } from "./urls.js";
 import { element, select, field, report } from "./dom.js";
 
 export class WorldConfig extends foundry.applications.api.ApplicationV2 {
+  static instance;
   static DEFAULT_OPTIONS = {
     id: "rpgup-vdo-world-config", classes: ["rpgup-vdo", "rpgup-world-config"],
     window: { title: "RPGUP VDO.Ninja — World / OBS", icon: "fas fa-video", resizable: true },
     position: { width: 780, height: 680 }
   };
+
+  constructor(options = {}) {
+    super(options);
+    if (WorldConfig.instance) return WorldConfig.instance;
+    WorldConfig.instance = this;
+  }
 
   _canRender(options) {
     super._canRender(options);
@@ -16,10 +23,16 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
   }
 
   async _renderHTML() {
-    const config = worldConfig();
-    this._baseConfig = structuredClone(config);
     const users = Array.from(game.users);
+    const signature = JSON.stringify(users.map(user => [user.id, user.name, user.isGM]));
+    if (this._form && this._userSignature === signature) return this._form;
+    const draft = this._form ? this._readDraft() : null;
+    const savedConfig = worldConfig();
+    const config = draft ?? savedConfig;
+    if (!draft) this._baseConfig = structuredClone(config);
+    this._userSignature = signature;
     const form = element("form", undefined, { class: "rpgup-config-form" });
+    this._form = form;
     const room = element("input", undefined, { name: "roomId", required: "", maxlength: "49", pattern: "[A-Za-z0-9]+" });
     room.value = config.roomId;
     const extra = element("input", undefined, { name: "extraQuery", placeholder: "password=Senha123&roombitrate=500" });
@@ -53,7 +66,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
       slotCell.append(slot);
       const obsCell = element("td");
       try {
-        const url = soloURL(config, user.id, users);
+        const url = soloURL(savedConfig, user.id, users);
         const link = element("input", undefined, { readonly: "", "aria-label": `Solo link OBS de ${user.name}` });
         link.value = url;
         link.addEventListener("click", () => link.select());
@@ -76,46 +89,87 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
       body.append(row);
     }
     table.append(thead, body);
-    const generate = element("button", "Gerar slots faltantes", { type: "button" });
-    generate.addEventListener("click", () => {
+    const generate = element("button", "Gerar e salvar slots faltantes", { type: "button" });
+    generate.addEventListener("click", async () => {
+      if (this._saving) return;
+      // A player may have been created after this panel opened.
+      await this.render({ force: true });
       const slots = { ...config.slots };
       for (const [userId, input] of this._inputs) slots[userId] = input.value.trim();
-      const filled = fillMissingSlots(slots, users);
+      const filled = fillMissingSlots(slots, Array.from(game.users));
       for (const [userId, input] of this._inputs) input.value = filled[userId];
+      this._notice.textContent = "Salvando os slots no mundo…";
+      try { await this.saveDraft(); } catch (error) { this._notice.textContent = `Não salvo: ${error.message}`; report(error); }
     });
     const save = element("button", "Salvar configuração", { type: "submit" });
     const obsNotice = element("p", "Links OBS refletem os valores já salvos. Mudanças de Room, senha ou Stream ID exigem atualizar a fonte OBS. Não compartilhe links de uma Room privada.", { role: "status" });
+    this._notice = obsNotice;
     form.addEventListener("input", () => {
       obsNotice.textContent = "Há alterações não salvas. Os links OBS acima ainda correspondem à configuração anterior; salve para atualizar.";
     });
-    generate.addEventListener("click", () => { obsNotice.textContent = "Slots gerados, ainda não salvos. Salve para gerar os links OBS."; });
-    form.append(generate, table, obsNotice, element("p", "Slots de usuários removidos são preservados para evitar reutilização acidental. Deixe vazio para não associar um usuário atual. Label acompanha o nome Foundry. Avatar e presets ficam após o gate."), save);
+    form.append(generate, table, obsNotice, element("p", "Gerar slots já salva Room e associações no mundo. Usuários sem iframe entram quando recebem a configuração. Reconectar não gera IDs. Slots de usuários removidos são preservados. Deixe vazio para desassociar um usuário atual."), save);
+    this._readDraft = () => {
+      const slots = { ...config.slots };
+      for (const [userId, input] of this._inputs) {
+        const value = input.value.trim();
+        if (value) slots[userId] = value;
+        else delete slots[userId];
+      }
+      return { roomId: room.value.trim(), extraQuery: extra.value.trim(), audio: audio.value, directorUserId: director.value, slots };
+    };
+    this._saveDraft = async () => {
+      if (JSON.stringify(worldConfig()) !== JSON.stringify(this._baseConfig)) throw new Error("Outro GM alterou a configuração. Feche e reabra o painel antes de salvar.");
+      const next = validateWorld(this._readDraft(), Array.from(game.users));
+      this._saving = true;
+      save.disabled = generate.disabled = true;
+      try {
+        this._baseConfig = await saveWorld(next);
+        this._form = null;
+        ui.notifications.info("Room e slots confirmados no mundo. Jogadores sem sala entram automaticamente; participantes conectados podem reconectar.");
+        await this.render({ force: true });
+      } finally {
+        this._saving = false;
+        save.disabled = generate.disabled = false;
+      }
+    };
     form.addEventListener("submit", async event => {
       event.preventDefault();
-      save.disabled = true;
-      try {
-        if (!game.user.isGM) throw new Error("Somente o GM pode salvar configurações.");
-        // Avoid silently overwriting another GM's edit while this panel was open.
-        if (JSON.stringify(worldConfig()) !== JSON.stringify(this._baseConfig)) throw new Error("Outro GM alterou a configuração. Feche e reabra o painel antes de salvar.");
-        const slots = { ...config.slots };
-        for (const [userId, input] of this._inputs) {
-          const value = input.value.trim();
-          if (value) slots[userId] = value;
-          else delete slots[userId];
-        }
-        const next = validateWorld({ roomId: room.value, extraQuery: extra.value, audio: audio.value, directorUserId: director.value, slots }, Array.from(game.users));
-        await game.settings.set(MODULE_ID, "world", next);
-        ui.notifications.info("Room e slots salvos. Cada cliente pode aplicar / reconectar no dock.");
-        await this.render({ force: true });
-      } catch (error) {
-        report(error);
-        save.disabled = false;
-      }
+      try { await this.saveDraft(); } catch (error) { obsNotice.textContent = `Não salvo: ${error.message}`; report(error); }
     });
     return form;
   }
 
   _replaceHTML(result, content) {
-    content.replaceChildren(result);
+    if (!content.contains(result)) content.replaceChildren(result);
+  }
+
+  get dirty() {
+    return this._form && JSON.stringify(this._readDraft()) !== JSON.stringify(this._baseConfig);
+  }
+
+  async saveDraft() {
+    if (!game.user.isGM) throw new Error("Somente o GM pode salvar configurações.");
+    if (this._savePromise) return this._savePromise;
+    this._savePromise = this._saveDraft();
+    try { await this._savePromise; } finally { this._savePromise = null; }
+  }
+
+  configChanged() {
+    if (!this._form || this._saving) return;
+    if (this.dirty) {
+      this._notice.textContent = "A configuração salva mudou. Seu rascunho foi preservado; feche e reabra para usar os dados atuais.";
+      return;
+    }
+    this._form = null;
+    this.render({ force: true }).catch(report);
+  }
+
+  refreshUsers() {
+    if (this._form) this.render({ force: true }).catch(report);
+  }
+
+  _onClose(options) {
+    super._onClose(options);
+    this._form = this._readDraft = this._saveDraft = null;
   }
 }

@@ -25,7 +25,7 @@ Não há servidor de mídia, LiveKit, MediaMTX, WHIP/WHEP direto, broker, backen
 
 `game.settings`, scope `world`, mantém uma configuração mínima em um único valor: `roomId`, `extraQuery`, `audio`, `directorUserId` e `slots`. O Foundry é a fonte de verdade; não existe dependência de uma API persistente de configuração de Rooms VDO.Ninja. Alterações feitas na UI Director são nativas da sessão VDO e não são importadas automaticamente para o Foundry.
 
-O GM gera ou informa uma associação **Foundry userId → VDO.Ninja Stream ID**. Os IDs gerados são aleatórios, persistidos somente ao salvar e não dependem do nome, da sessão nem da conexão. Slots já existentes e de usuários removidos são preservados. Duplicatas/IDs inválidos são rejeitados. Um usuário não associado recebe uma indicação no dock; ele não escolhe Room ou Stream ID.
+O GM gera ou informa uma associação **Foundry userId → VDO.Ninja Stream ID**. **Gerar e salvar slots faltantes** grava a configuração no mundo, aguarda `game.settings.set` e confere o valor retornado pelo cache de Settings antes de anunciar sucesso. O getter devolve uma cópia para evitar alterações acidentais no objeto vivo. Os IDs não dependem do nome, da sessão nem da conexão. Slots existentes e de usuários removidos são preservados. Duplicatas/IDs inválidos são rejeitados. Um usuário não associado aguarda no dock; ao receber `onChange` do Setting mundial, abre seu primeiro iframe. Uma sessão existente recebe aviso e só reconecta por ação explícita.
 
 Exemplo:
 
@@ -36,7 +36,7 @@ Exemplo:
 
 Label vem do nome atual do usuário Foundry. Uma mudança de nome pode ser aplicada ao reconectar sem alterar o slot. O slot estável permite um OBS permanente entre reconexões; mudar Room/senha/slot altera o link. Os IDs são roteamento, **não prova criptográfica de identidade**. Room/senha e URLs são acessíveis aos participantes do World; não equivalem a segredos de servidor ou a um sistema externo de autorização Foundry.
 
-Configuração completa do GM — incluindo avatar individual, label configurável quando compatível com o nome Foundry, presets de qualidade e outras opções de iframe — pertence à fase após o gate. O painel inicial cobre apenas o necessário para três participantes e a comparação de áudio/Director. Não oferece upload de avatar nesta fase.
+O painel GM é singleton, conserva o formulário/rascunho em rerenders, rejeita alterações feitas por outro GM enquanto havia um rascunho e informa falhas de gravação. Aplicar/reconectar no GM salva um rascunho aberto antes de ler a configuração atual. A conexão nunca gera IDs. O painel completo e presets continuam após o gate; preferências individuais de câmera/avatar/zoom foram autorizadas explicitamente após o teste inicial do usuário.
 
 ## Iframe e parâmetros
 
@@ -66,9 +66,9 @@ A API oficial `postMessage` foi investigada, mas não é necessária para a prim
 
 `RoomDock` estende o contrato ApplicationV2 presente nas APIs públicas v13 e v14, com métodos protegidos de extensão documentados: `_renderHTML`, `_replaceHTML`, `_onRender`, `_prePosition`, `_onPosition`, `_preClose` e `_onClose`. Não usa métodos marcados Internal ou modifica APIs do Foundry. O menu de configurações chama a mesma instância local do dock.
 
-Opções: esquerda, direita, topo, embaixo, flutuante. `setPosition` posiciona a própria aplicação; o slider regula a dimensão transversal e o frame fornece resize. O dock inicial é um painel preso à borda **sobreposto ao jogo**: não reserva espaço do canvas, não altera o sidebar ou CameraViews. O iframe usa a dimensão disponível e conserva seus controles e menus nativos.
+Opções: esquerda, direita, topo, embaixo, **flutuante por padrão**. Preferências do primeiro protótipo migram uma vez para flutuante; as escolhas seguintes são preservadas. `setPosition` posiciona a própria aplicação; o slider regula a dimensão transversal e o frame fornece resize. Nas bordas, margens de `#interface` reservam espaço para a UI, com dimensões limitadas a metade da viewport. O canvas continua em tela cheia. Isso segue o princípio do CameraViews nativo sem substituir a classe, mover os elementos do Foundry ou alterar o AVClient. Não existe API pública documentada para registrar um dock de terceiros no layout AV; esta pequena integração CSS depende do DOM v13/v14 e precisa de validação com temas/módulos de UI. Fechar ou flutuar remove imediatamente a reserva.
 
-Flags `User` guardam preferências individuais por World: posição, largura lateral, altura da barra, geometria flutuante, abertura ao entrar e tipo de preview. Isso funciona em ambas as gerações e distingue usuários no mesmo navegador. Não altera a configuração mundial ao mover o dock.
+Flags `User` guardam preferências individuais por World: posição, largura lateral, altura da barra, geometria flutuante, abertura ao entrar, preview, zoom, câmera, avatar e modo de interface. Não altera a configuração mundial ao mover o dock. O zoom escala o iframe e aumenta inversamente seu viewport CSS, sem tocar seu DOM ou mudar `src`. Flex layout e ResizeObserver mantêm a área disponível ao redimensionar. Os controles do módulo rolam quando falta espaço.
 
 Reposicionar/redimensionar e renderizar novamente mantém o mesmo elemento iframe sem removê-lo da árvore DOM ou alterar `src`. Fechar remove o frame e encerra sua sessão; reabrir cria um único novo frame. Alterações do GM/nome/self-preview mostram aviso; **Aplicar / reconectar** é a ação que troca a URL e reinicia a conexão. Preferências de tamanho não são sobrescritas só porque a viewport encolheu.
 
@@ -78,11 +78,13 @@ Três opções individuais: UI nativa, `minipreview` e `pipme`. Nenhuma usa `vie
 
 Meta de teste: grupo permanece dockado e câmera do narrador aparece em um PiP móvel próximo à câmera física, sem segunda recepção de rede. Gesto/consentimento, suporte do browser e UI de Director podem afetar o resultado. O módulo lembra a opção de preview; posição e tamanho de uma janela PiP de sistema dependem do navegador e não têm persistência prometida pelo módulo. Documentar falha antes de desenvolver alternativa.
 
-## Avatar: investigar antes de implementar
+## Câmera, avatar e modo móvel
 
 A documentação oficial de `avatar` descreve imagem padrão, arquivo local ou URL codificada e fallback quando vídeo é mutado ou não há câmera. A mesma página conserva ressalva sobre beta/alpha. O HTML servido em `https://vdo.ninja/` em 01/10/2026 declara `31.1`; isso não demonstra o comportamento real de avatar no iframe.
 
-Após o gate, testar `avatar=<URL>` com imagem HTTPS acessível pela origem VDO, câmera ligada/desligada, navegador, Director, guests e OBS. Só habilitar imagem configurada pelo GM se o fallback funcionar de forma confiável. Não fazer proxy, canvas virtual ou mecanismo alternativo agora. Futuro upload/seleção do jogador dependerá de permissão do GM.
+Por pedido explícito do usuário após seu teste, a versão `0.1.0-prototype.2` implementa `avatar=<URL>` a partir de `User.avatar` por padrão, resolvendo caminhos relativos contra a URL do Foundry. Há preferência individual de URL customizada ou sem placeholder. HTTP/HTTPS são os únicos protocolos permitidos; URLs com credenciais, blobs de sessão e imagens HTTP em Foundry HTTPS são rejeitadas. A imagem é aplicada novamente a cada entrada. Arquivos selecionados somente no iframe não são extraídos/importados. CORS/acesso à imagem e fallback de vídeo devem ser conferidos no teste real; não há proxy ou captura alternativa.
+
+A câmera usa `vdo=1` por padrão ou um nome salvo pelo usuário. Diferentemente de `videodevice=1`, `vdo` mantém a escolha de câmera antes da entrada. Não se transfere deviceId de Foundry para VDO porque os IDs são específicos de origem. Automático deixa a detecção nativa; PC envia `notmobile`; Móvel envia `mobile`. São ajustes da mesma página VDO responsiva, não emulação de user-agent ou um endpoint de site móvel separado.
 
 ## OBS e áudio
 
@@ -100,7 +102,7 @@ O modo mundial de áudio é reversível: `discord` (inicial) usa `audiodevice=0`
 
 Primeira prova, em **cada geração**: 1 GM, 2 jogadores, três clientes de navegador, uma Room, um iframe por cliente, slots automáticos e persistentes, câmera e visão mútua, clique direito/controles, cinco posições do dock, resize, self-preview/PiP e três fontes solo OBS com reconexão. Registrar versões exatas, parâmetros, permissões e problemas em [PROTOTYPE-RESULTS.md](PROTOTYPE-RESULTS.md).
 
-Testes unitários e fixture de navegador verificam nosso código; não substituem essa prova. Somente se ela passar, avançar para 4–6 participantes, painel GM completo, avatar, acabamento visual, presets e exportação organizada OBS. Falha fundamental → registrar e investigar o recurso oficial antes de propor outra arquitetura. A simplicidade é o critério principal.
+Testes unitários e fixture de navegador verificam nosso código; não substituem essa prova. Somente se ela passar, avançar para 4–6 participantes, painel GM completo, presets e exportação organizada OBS. Os ajustes individuais solicitados nesta revisão não representam aprovação do gate. Falha fundamental → registrar e investigar o recurso oficial antes de propor outra arquitetura.
 
 ## Fontes oficiais consultadas em 01/10/2026
 
@@ -109,3 +111,5 @@ Testes unitários e fixture de navegador verificam nosso código; não substitue
 - [Iframe API](https://docs.vdo.ninja/guides/iframe-api-documentation/iframe-api-basics), [pipme](https://docs.vdo.ninja/advanced-settings/design-parameters/and-pipme-alpha), [minipreview](https://docs.vdo.ninja/advanced-settings/video-parameters/and-minipreview).
 - [Avatar](https://docs.vdo.ninja/advanced-settings/video-parameters/and-avatar), [solo](https://docs.vdo.ninja/advanced-settings/mixer-scene-parameters/and-solo), [password](https://docs.vdo.ninja/advanced-settings/setup-parameters/and-password).
 - [audiodevice](https://docs.vdo.ninja/advanced-settings/setup-parameters/audiodevice), [noaudio](https://docs.vdo.ninja/advanced-settings/audio-parameters/noaudio).
+- [Dock AV Foundry](https://foundryvtt.com/article/audio-video/), [CameraViews v13](https://foundryvtt.com/api/v13/classes/foundry.applications.apps.av.CameraViews.html), [CameraViews v14](https://foundryvtt.com/api/v14/classes/foundry.applications.apps.av.CameraViews.html), [User.avatar](https://foundryvtt.com/api/v14/classes/foundry.documents.User.html).
+- [vdo: câmera padrão com seletor](https://docs.vdo.ninja/advanced-settings/setup-parameters/and-vdo), [videodevice e IDs por origem](https://docs.vdo.ninja/advanced-settings/setup-parameters/videodevice), [mobile / notmobile](https://docs.vdo.ninja/advanced-settings/mobile-parameters/and-mobile).
