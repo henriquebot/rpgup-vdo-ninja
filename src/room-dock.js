@@ -2,7 +2,7 @@ import { DOCKS, AVATARS, dockPosition, normalizePrefs } from "./config.js";
 import { participantURL } from "./urls.js";
 import { prepareAvatar } from "./avatar.js";
 import { worldConfig, userPrefs, savePrefs } from "./settings.js";
-import { element, select, field, tooltip, report } from "./dom.js";
+import { element, select, field, tooltip, panel, button, report } from "./dom.js";
 import { WorldConfig } from "./world-config.js";
 
 const ApplicationV2 = foundry.applications.api.ApplicationV2;
@@ -12,7 +12,7 @@ export class RoomDock extends ApplicationV2 {
   static DEFAULT_OPTIONS = {
     id: "rpgup-vdo-room", classes: ["rpgup-vdo", "rpgup-room-dock"],
     window: { title: "RPGUP VDO.Ninja", icon: "fas fa-video", resizable: true, minimizable: false },
-    actions: { toggleModuleSettings: this.prototype._toggleSettings, undock: this.prototype._undock },
+    actions: { toggleModuleSettings: this.prototype._toggleSettings, undock: this.prototype._undock, reloadRoom: this.prototype._reloadRoom },
     position: { width: 720, height: 600 }
   };
 
@@ -29,6 +29,10 @@ export class RoomDock extends ApplicationV2 {
   async _renderFrame(options) {
     const frame = await super._renderFrame(options);
     const header = frame.querySelector(".window-header");
+    this._reloadButton = tooltip(element("button", undefined, {
+      type: "button", class: "header-control icon fa-solid fa-rotate-right", "data-action": "reloadRoom",
+      "aria-label": "Recarregar sala VDO"
+    }), "Recarregar somente sua sala VDO para atualizar mudanças do Director. Reinicia sua conexão e câmera; mantém o Foundry aberto e não salva rascunhos do GM. Para aplicar opções do módulo, use Aplicar / reconectar.");
     this._settingsButton = tooltip(element("button", undefined, {
       type: "button", class: "header-control icon fa-solid fa-gear", "data-action": "toggleModuleSettings",
       "aria-label": "Configurações da dock", "aria-expanded": "false", "aria-controls": "rpgup-vdo-settings"
@@ -38,9 +42,19 @@ export class RoomDock extends ApplicationV2 {
       "aria-label": "Desacoplar janela"
     }), "Transformar o dock de borda em janela flutuante dentro do Foundry, sem reconectar a chamada.");
     const close = header.querySelector('[data-action="close"]');
+    header.insertBefore(this._reloadButton, close);
     header.insertBefore(this._settingsButton, close);
     header.insertBefore(this._undockButton, close);
     return frame;
+  }
+
+  _reloadRoom() {
+    if (this._connecting) return;
+    if (!this._iframe || !this._activeURL) return this._connect({ saveDraft: false });
+    this._status.textContent = this._pending
+      ? "Recarregando a sala atual. Há opções do módulo pendentes; use Aplicar / reconectar para aplicá-las."
+      : "Recarregando somente a sala VDO. Ative sua câmera novamente na UI nativa.";
+    this._iframe.src = this._activeURL;
   }
 
   _toggleSettings() {
@@ -68,7 +82,7 @@ export class RoomDock extends ApplicationV2 {
     auto.checked = this.prefs.autoOpen;
     const size = element("input", undefined, { type: "range", min: "320", max: "1200", step: "10", "aria-label": "Tamanho do dock" });
     this._size = size;
-    const reconnect = element("button", "Aplicar / reconectar", { type: "button" });
+    const reconnect = button("Aplicar / reconectar", "fa-check", { class: "rpgup-primary" });
     const smaller = tooltip(element("button", "−", { type: "button", "aria-label": "Diminuir zoom" }), "Diminuir os controles e vídeos do VDO, mostrando mais conteúdo. Não reconecta.");
     const larger = tooltip(element("button", "+", { type: "button", "aria-label": "Aumentar zoom" }), "Aumentar os controles e vídeos do VDO. Não reconecta.");
     this._zoomReset = element("button", `${Math.round(this.prefs.zoom * 100)}%`, { type: "button", "aria-label": "Restaurar zoom para 100%" });
@@ -76,12 +90,14 @@ export class RoomDock extends ApplicationV2 {
     zoom.append(smaller, this._zoomReset, larger);
     tooltip(this._zoomReset, "Voltar o zoom para 100%, sem reconectar a chamada.");
     tooltip(reconnect, "Salvar suas preferências e reabrir a sala. Isso interrompe e reinicia sua câmera. No GM, salva também o rascunho aberto de World / OBS.");
-    toolbar.append(field("Posição da janela", dock, "Flutuante pode ser movida e redimensionada. As bordas reservam espaço da UI do Foundry. Mudar posição não reconecta."), zoom, reconnect);
+    toolbar.append(field("Posição da janela", dock, "Flutuante pode ser movida e redimensionada. As bordas reservam espaço da UI do Foundry. Mudar posição não reconecta."), field("Zoom da sala", zoom));
+    const actions = element("div", undefined, { class: "rpgup-actions" });
+    actions.append(reconnect);
     if (game.user.isGM) {
-      const config = element("button", "World / OBS", { type: "button" });
+      const config = button("World / OBS", "fa-users-gear");
       config.addEventListener("click", () => this.onConfigure?.(), { signal: this._listeners.signal });
       tooltip(config, "Configurar a Room compartilhada, os IDs dos usuários e copiar links individuais para OBS. Somente o GM altera estes dados.");
-      toolbar.append(config);
+      actions.append(config);
     }
     const settings = element("div", undefined, { class: "rpgup-toolbar rpgup-preferences" });
     const avatar = select(AVATARS, this.prefs.avatar, "Placeholder");
@@ -89,16 +105,22 @@ export class RoomDock extends ApplicationV2 {
     avatarURL.value = this.prefs.avatarURL;
     avatarURL.disabled = this.prefs.avatar !== "custom";
     settings.append(
-      field("Imagem quando a câmera está desligada", avatar, "Avatar Foundry usa a imagem do seu usuário e a reaplica em cada sessão. Imagem por URL usa o endereço salvo abaixo. Sem placeholder deixa o comportamento padrão do vídeo desligado. Clique em Aplicar após mudar."),
-      field("URL da imagem", avatarURL, "Endereço da imagem personalizada. Imagens do próprio Foundry são lidas com sua sessão; imagens de outros sites precisam permitir leitura pelo navegador. A URL é lembrada por usuário."),
-      field("Abrir esta janela ao entrar no mundo", auto, "Marcada: abre a dock ao entrar no World. Desmarcada: abra pelo menu do módulo ou macro. Esta opção não liga sua câmera automaticamente."),
-      field("Largura / altura na borda", size, "Ajusta a largura nas bordas laterais ou a altura no topo/embaixo. Em modo flutuante, use a alça de redimensionamento da janela.")
+      field("Imagem quando a câmera está desligada", avatar, "Avatar Foundry / da mesa usa a imagem definida pelo GM, ou a do seu usuário Foundry, e a reaplica em cada sessão. Imagem por URL usa o endereço salvo abaixo. Sem placeholder deixa o comportamento padrão do vídeo desligado. Clique em Aplicar após mudar."),
+      field("URL da imagem", avatarURL, "Endereço da imagem personalizada. Imagens do próprio Foundry são lidas com sua sessão; imagens de outros sites precisam permitir leitura pelo navegador. A URL é lembrada por usuário.")
     );
+    const autoField = field("Abrir esta janela ao entrar no mundo", auto, "Marcada: abre a dock ao entrar no World. Desmarcada: abra pelo botão Câmeras VDO.Ninja na aba Configurações ou pelo menu do módulo. Esta opção não liga sua câmera automaticamente.");
+    autoField.classList.add("rpgup-toggle");
+    toolbar.append(field("Largura / altura na borda", size, "Ajusta a largura nas bordas laterais ou a altura no topo/embaixo. Em modo flutuante, use a alça de redimensionamento da janela."), autoField);
     this._avatarPreview = element("img", undefined, { class: "rpgup-avatar-preview", alt: "Imagem preparada para o placeholder", hidden: "" });
     this._avatarStatus = element("p", "", { class: "rpgup-avatar-status", role: "status" });
     this._directorHelp = element("p", "Director inicia em Scene Preview. Use 🪟 Toggle Director Vision no VDO para alternar entre a cena e o painel de direção.", { hidden: "", class: "rpgup-director-help" });
-    this._settings.append(toolbar, settings, this._avatarPreview, this._avatarStatus, this._directorHelp,
-      element("p", "Câmera e microfone: engrenagem do VDO. Preview e PiP: controles/menu de contexto do próprio vídeo; Ctrl+Alt+P alterna o PiP da sua câmera (Cmd+Alt+P no Mac), com foco no VDO.")
+    const avatarSummary = element("div", undefined, { class: "rpgup-avatar-summary" });
+    avatarSummary.append(this._avatarPreview, this._avatarStatus);
+    this._settings.append(
+      panel("Sua janela", "Posição, tamanho e zoom são salvos automaticamente e mantêm a chamada conectada.", toolbar),
+      panel("Imagem com a câmera desligada", "Use a imagem do usuário Foundry, a definida pelo GM para a mesa ou sua própria URL.", settings, avatarSummary),
+      panel("Controles da chamada", "Câmera e microfone: engrenagem do VDO. Preview e PiP: menu do próprio vídeo. Ctrl+Alt+P alterna seu PiP (Cmd+Alt+P no Mac), com foco no VDO.", this._directorHelp),
+      actions
     );
     const remember = (control, key) => control.addEventListener("change", () => {
       this.prefs[key] = control.value.trim();
@@ -162,6 +184,7 @@ export class RoomDock extends ApplicationV2 {
   async _connect({ saveDraft = true } = {}) {
     if (this._connecting) return;
     this._connecting = true;
+    this._reloadButton.disabled = true;
     const signal = this._listeners.signal;
     try {
       if (saveDraft && game.user.isGM && WorldConfig.instance?.dirty) await WorldConfig.instance.saveDraft();
@@ -173,7 +196,8 @@ export class RoomDock extends ApplicationV2 {
       participantURL(world, game.user, this.prefs, Array.from(game.users), location.href, null);
       let avatar;
       try {
-        const prepared = await prepareAvatar(game.user, this.prefs, { signal });
+        const avatarUser = { avatar: world.avatars?.[game.user.id] || game.user.avatar };
+        const prepared = await prepareAvatar(avatarUser, this.prefs, { signal });
         avatar = prepared.value;
         this._avatarPreview.hidden = !avatar || avatar === "default";
         if (!this._avatarPreview.hidden) this._avatarPreview.src = avatar;
@@ -224,7 +248,10 @@ export class RoomDock extends ApplicationV2 {
       }
     } finally {
       // An aborted avatar fetch may finish after this dock was reopened.
-      if (this._listeners.signal === signal) this._connecting = false;
+      if (this._listeners.signal === signal) {
+        this._connecting = false;
+        this._reloadButton.disabled = false;
+      }
     }
   }
 

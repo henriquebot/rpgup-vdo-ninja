@@ -1,4 +1,4 @@
-import { VDO_BASE, parseExtraQuery, validateWorld, normalizePrefs } from "./config.js";
+import { VDO_BASE, QUALITY_PRESETS, parseExtraQuery, validateWorld, normalizePrefs } from "./config.js";
 
 function configuredURL(world, users) {
   const config = validateWorld(world, users);
@@ -8,7 +8,10 @@ function configuredURL(world, users) {
 }
 
 function addExtras(url, world, { viewer = false } = {}) {
-  for (const [key, value] of parseExtraQuery(world.extraQuery)) {
+  const params = new URLSearchParams(QUALITY_PRESETS[world.quality].params);
+  // Explicit advanced values take precedence over the selected preset.
+  for (const [key, value] of parseExtraQuery(world.extraQuery)) params.set(key, value);
+  for (const [key, value] of params) {
     // OBS receives connection/password options, not the publisher's capture constraints.
     if (viewer && !["password", "codec", "videobitrate"].includes(key)) continue;
     url.searchParams.set(key, value);
@@ -42,7 +45,8 @@ export function participantURL(world, user, prefs = {}, users = [user], baseURL 
     url.searchParams.set("previewmode", "");
   }
   addExtras(url, config);
-  const avatar = preparedAvatar === undefined ? avatarSource(user, prefs, baseURL) : preparedAvatar;
+  const avatarUser = { ...user, avatar: config.avatars[user.id] || user.avatar };
+  const avatar = preparedAvatar === undefined ? avatarSource(avatarUser, prefs, baseURL) : preparedAvatar;
   if (avatar) url.searchParams.set("avatar", avatar);
   if (config.audio === "discord") {
     url.searchParams.set("audiodevice", "0");
@@ -62,4 +66,15 @@ export function soloURL(world, userId, users = []) {
   addExtras(url, config, { viewer: true });
   if (config.audio === "discord") url.searchParams.set("noaudio", "");
   return url.href;
+}
+
+export function obsExport(world, users = []) {
+  const config = validateWorld(world, users);
+  return {
+    format: "rpgup-vdo-ninja-obs-links", version: 1, roomId: config.roomId,
+    sources: users.filter(user => Object.hasOwn(config.slots, user.id)).map(user => ({
+      userId: user.id, name: user.name, streamId: config.slots[user.id],
+      url: soloURL(config, user.id, users), width: 1280, height: 720
+    }))
+  };
 }

@@ -14,8 +14,32 @@ export function select(options, value, name) {
 
 export function tooltip(node, text) {
   node.title = text;
+  node.dataset.tooltipText = text;
   node.dataset.tooltip = text;
   return node;
+}
+
+export function panel(title, help, ...children) {
+  const node = element("fieldset", undefined, { class: "rpgup-panel" });
+  node.append(element("legend", title));
+  if (help) node.append(element("p", help, { class: "rpgup-help" }));
+  node.append(...children);
+  return node;
+}
+
+export function button(label, icon, attributes = {}) {
+  const node = element("button", undefined, { type: "button", ...attributes });
+  node.append(element("i", undefined, { class: `fa-solid ${icon}`, "aria-hidden": "true" }), element("span", label));
+  return node;
+}
+
+export function downloadJSON(value, filename) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }));
+  const link = element("a", undefined, { href: url, download: filename, hidden: "" });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function field(label, control, help) {
