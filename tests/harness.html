@@ -9,12 +9,14 @@ body { position: fixed; display: flex; margin: 0; width: 100vw; height: 100vh; f
 #ui-right { position: absolute; right: 0; }
 .application { position: absolute; background: #454b58; display: flex; flex-direction: column; }
 .window-header { height: 30px; flex-shrink: 0; background: #252830; display: flex; justify-content: end; }
+.window-title { flex: 1; padding: 5px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .window-header [data-action="toggleModuleSettings"]::before { content: "⚙"; }
 .window-header [data-action="undock"]::before { content: "↗"; }
+.window-header [data-action="reloadRoom"]::before { content: "↻"; }
 .window-content { flex: 1; min-height: 0; }
 input, select, button { font: inherit; }
 </style>
-<div id="interface"><div id="ui-left">Controles Foundry</div><div id="ui-right">Sidebar Foundry</div></div>
+<div id="interface"><div id="ui-left">Controles Foundry</div><div id="ui-right"><section id="settings" class="settings"><button type="button">Configurar opções</button></section></div></div>
 <script type="module">
 // A small documented-contract fixture. It does NOT emulate a complete Foundry runtime.
 const handlers = new Map();
@@ -65,7 +67,7 @@ window.addEventListener("storage", event => {
 });
 const applications = [];
 class ApplicationV2 {
-  constructor(options = {}) { this.options = { ...this.constructor.DEFAULT_OPTIONS, ...options }; this.position = { ...this.options.position }; applications.push(this); }
+  constructor(options = {}) { this.options = { ...this.constructor.DEFAULT_OPTIONS, ...options }; this.position = { left: Math.max(8, (innerWidth - this.options.position.width) / 2), top: Math.max(8, (innerHeight - this.options.position.height) / 2), ...this.options.position }; applications.push(this); }
   async render(options = {}) {
     this._canRender(options);
     if (!this.element) {
@@ -83,12 +85,14 @@ class ApplicationV2 {
     const result = await this._renderHTML({}, options);
     this._replaceHTML(result, this.element.querySelector(".window-content"), options);
     this.rendered = true;
+    this.setPosition(this.position);
     await this._onRender({}, options);
     return this;
   }
   async _renderFrame() {
     const frame = document.createElement("div");
-    frame.innerHTML = '<header class="window-header"><button type="button" data-action="close" aria-label="Fechar">×</button></header><div class="window-content"></div>';
+    frame.innerHTML = '<header class="window-header"><span class="window-title"></span><button type="button" data-action="close" aria-label="Fechar">×</button></header><div class="window-content"></div>';
+    frame.querySelector(".window-title").textContent = this.options.window.title;
     return frame;
   }
   setPosition(position) {
@@ -98,6 +102,7 @@ class ApplicationV2 {
     this._onPosition(this.position);
   }
   async close() { await this._preClose({}); this.element.remove(); this.element = null; this.rendered = false; this._onClose({}); }
+  bringToFront() { this.frontCount = (this.frontCount ?? 0) + 1; }
   _canRender() {}
   async _onRender() {}
   _prePosition() {}
@@ -108,6 +113,7 @@ class ApplicationV2 {
 globalThis.foundry = { applications: { api: { ApplicationV2 } } };
 await import("/src/main.js");
 Hooks.callAll("init");
+Hooks.callAll("renderSettings", {}, document.querySelector("#settings"));
 Hooks.callAll("ready");
 globalThis.fixture = {
   config: () => structuredClone(config),

@@ -1,8 +1,18 @@
 # Resultados do primeiro protótipo
 
-Data: **01/10/2026**, America/Sao_Paulo. Módulo atual: `0.1.0-prototype.3`. Escopo: **1 GM + 2 jogadores**, primeiro na v14 e depois na v13.
+Data: **01/10/2026**, America/Sao_Paulo. Módulo de produção: `1.0.0`. Histórico do protótipo: `0.1.0-prototype.1` a `.3`.
 
-**Gate: PENDENTE — NÃO avançar para 4–6 participantes, presets ou produto completo.** Após a revisão .2, o usuário informou que as correções funcionaram, mas apontou avatar Foundry ainda ausente e controles da dock ocupando espaço. A geração e a matriz de mídia dessa sessão não foram informadas. A revisão .3 passou nos testes de código e em uma prova limitada de UI na página oficial VDO; câmeras entre três clientes, menus com mídia, PiP e OBS ainda não foram validados pelo agente.
+**Gate: APROVADO PELO USUÁRIO.** Após a revisão .3, o usuário declarou “prototipo aprovado” e “pode ir pra produção”, solicitando reload da dock, refinamento visual/usabilidade e compatibilidade v13/v14. Essa aprovação autoriza a versão 1.0.0 e os itens pós-protótipo. O usuário não informou a geração usada ou medições específicas; a aprovação não é apresentada como uma sessão de mídia observada pelo agente em ambas as gerações.
+
+## Versão de produção 1.0.0
+
+- Manifest: `minimum: 13`, `verified: 14`, `maximum: 14`, conforme suporte v13/v14 e aprovação solicitados pelo usuário. Identificação de protótipo removida; branch de distribuição versionada `v1.0.0` e manifest de atualização na main.
+- Reload no cabeçalho navega somente o iframe atual, conservando a página Foundry, Room, ID, geometria e rascunhos do GM. Aplicar/reconectar continua separado. Botão Câmeras VDO.Ninja na sidebar Configurações permite reabrir a janela fechada.
+- Visual organizado em grupos com tooltips, foco visível, controles com ícones, opções avançadas recolhidas, status de salvamento e tabela de participantes que vira lista em telas estreitas. A UI nativa VDO foi preservada.
+- Presets opcionais de qualidade com `roombitrate` e `maxframerate`; avançados prevalecem. Avatar opcional por usuário configurável pelo GM, sem alterar o documento User; preferências individuais podem escolher URL própria ou dispensar imagem. Configurações antigas mantêm Room/slots e padrões automáticos.
+- Exportação JSON dos links OBS da configuração salva, incluindo nome, userId, Stream ID e dimensões sugeridas. Não é uma coleção de cenas nem controle OBS.
+
+Validação automatizada da 1.0.0: **15 testes unitários**, check e package passaram. A fixture Playwright/Edge conferiu reload isolado com rascunho GM aberto, reabertura pela sidebar sem duplicação, preset persistente, avatar da mesa aplicado ao jogador e download de JSON com fontes corretas, além das regressões de slots/avatar/zoom. Associação estável e exportação passaram com seis usuários fictícios, sem seis sessões de mídia. Layout inspecionado em screenshots desktop e estreitas; os screenshots representam a fixture, não o runtime Foundry licenciado. Detalhes de execução anteriores abaixo permanecem como histórico.
 
 ## Retorno do usuário e revisão .2
 
@@ -88,11 +98,11 @@ Na revisão .3, `npm test`: **12 testes passaram**. `npm run check`: manifest, a
 | Director inicia em Scene Preview; aviso uma vez; só GM designado recebe parâmetro | Passou | Fixture e construção de URL; toggle também conferido no VDO real |
 | Opções removidas não aparecem nem alteram a URL, mesmo com flags antigas | Passou | Normalização e fixture |
 
-A compatibilidade foi construída contra os contratos documentados v13/v14 e conferida também no código local da v13.351. Não há `compatibility.verified` no manifest: **ambas as gerações ainda exigem validação funcional real**.
+A compatibilidade foi construída contra os contratos documentados v13/v14 e conferida no código local da v13.351. Na revisão .3 o manifest não tinha `compatibility.verified`; a 1.0.0 declara `verified: 14` após aprovação e solicitação expressas do usuário. Não houve nova sessão licenciada do agente em cada geração.
 
-## O que ainda não funcionou ou não foi testado
+## Registro anterior da prova de mídia por geração
 
-O retorno do usuário confirma recuperação do fluxo após a revisão .2 e a necessidade de corrigir o avatar. A tabela continua pendente por geração porque o agente não observou uma sessão de mídia completa e o relato não separou as duas gerações. Não confundir testes de código/UI com aprovação de mídia.
+O usuário aprovou o protótipo após a revisão .3. A tabela registra os requisitos que o agente não observou diretamente por geração; não invalida nem substitui essa aprovação. Os relatos do usuário não separaram as gerações ou forneceram uma matriz detalhada.
 
 | Teste exigido | v14.367 | v13.351 | Evidência necessária |
 | --- | --- | --- | --- |
@@ -126,7 +136,7 @@ O módulo usa o preview nativo e **não implementa persistência de posição/ta
 9. Em cada cliente, confira flutuante e opções recolhidas na abertura. Use a engrenagem para alterar esquerda/direita/topo/embaixo/flutuante, slider e zoom. Confira tooltips e desacoplar sem reconectar. Redimensione, feche/reabra e recarregue; confira persistência, preenchimento do iframe e acesso à UI com cada borda, inclusive com AV nativo/temas/módulos da mesa. Teste avatar Foundry/URL/sem placeholder; confira a miniatura preparada, aplique, mute/desmute e recarregue para conferir imagem entre peers. Desmarque abertura ao entrar e confirme que a abertura manual continua disponível.
 10. No GM, teste preview, mini preview e PiP pelos controles nativos do VDO. Sem `autostart`. Com foco no iframe, teste Ctrl+Alt+P (Cmd+Alt+P no Mac), controles e gesto manual. Mova PiP próximo à câmera física; confirme demais jogadores no dock e comportamento ao fechar/reabrir/PiP. Registre suporte e persistência oferecidos pelo navegador.
 11. No painel GM, copie os três solo links para três Browser Sources OBS. Registre versão OBS/CEF, tamanho da source, codec/resolução/FPS efetivos, imagem individual, áudio escolhido, ligar/desligar câmera e reload do publisher. Confirme retorno usando a mesma URL. Não gravar ou publicar a sessão sem autorização dos participantes.
-12. Preencha a ficha abaixo **para cada geração**. Se algo fundamental falhar, inclua passos, versão e mensagens e mantenha o gate pendente; investigue o recurso oficial antes de alternativas.
+12. Para novas verificações ou diagnósticos, preencha a ficha abaixo **para cada geração**. Se algo fundamental falhar, inclua passos, versão e mensagens; investigue o recurso oficial antes de alternativas. A aprovação do protótipo pelo usuário está registrada acima.
 
 ## Ficha a preencher — copiar para v14 e v13
 
@@ -162,4 +172,4 @@ Responsável pela validação:
 - Os testes de navegador precisaram usar Edge instalado porque o Chromium headless padrão do Playwright não estava instalado. Nenhum browser foi instalado para contornar isso.
 - Ajustados o caminho do servidor temporário de fixture no Windows e o fechamento do painel de configuração antes de clicar no dock. Eram falhas do ambiente/roteiro de teste, não do VDO.
 - O painel é mínimo. Avatar e ajustes de dock foram adicionados por solicitação explícita nas revisões .2/.3; presets, persistência externa de Room e exportação em lote não foram construídos. Não houve alteração de infraestrutura nem decisão definitiva sobre áudio.
-- A prova real está limitada pela ausência de um World de testes pronto, acesso de sessão, três participantes/câmeras e OBS validado. Pacote e roteiro estão preparados para essa etapa; gate permanece pendente.
+- O agente não teve acesso a uma sessão Foundry autenticada com câmeras/OBS. O protótipo foi aprovado pelo usuário, que autorizou a produção; isso substitui o gate pendente das entregas anteriores sem inventar medições do agente.

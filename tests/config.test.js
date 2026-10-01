@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fillMissingSlots, validateWorld, parseExtraQuery, normalizePrefs, dockPosition } from "../src/config.js";
-import { participantURL, soloURL } from "../src/urls.js";
+import { participantURL, soloURL, obsExport } from "../src/urls.js";
 
 const users = [
   { id: "gm1", name: "Henrique", isGM: true },
@@ -130,4 +130,46 @@ test("avatar Foundry/customizado é validado e a miniatura preparada usa o parâ
   for (const image of ["javascript:alert(1)", "blob:https://foundry.example/id", "https://user:password@example.com/a.webp", "http://example.com/a.webp"]) {
     assert.throws(() => participantURL(world, gm, { avatar: "custom", avatarURL: image }, users, "https://foundry.example/game"), /Placeholder/);
   }
+});
+
+test("presets mantêm captura adaptativa, parâmetros avançados prevalecem e OBS não herda limites da mesa", () => {
+  const config = { ...world, quality: "economy", extraQuery: "password=Private123&roombitrate=450" };
+  const url = new URL(participantURL(config, users[1], {}, users));
+  assert.equal(url.searchParams.get("roombitrate"), "450");
+  assert.equal(url.searchParams.get("maxframerate"), "20");
+  assert.equal(url.searchParams.has("fps"), false);
+  const obs = new URL(soloURL(config, users[1].id, users));
+  for (const name of ["roombitrate", "maxframerate", "width", "height"]) assert.equal(obs.searchParams.has(name), false);
+  assert.equal(obs.searchParams.get("password"), "Private123");
+  assert.equal(validateWorld(world, users).quality, "native", "Configuração antiga mantém os padrões e os parâmetros existentes");
+  assert.throws(() => validateWorld({ ...world, quality: "unknown" }, users), /Preset/);
+});
+
+test("avatar definido pelo GM usa o parâmetro nativo; preferência pessoal pode escolher outra imagem", () => {
+  const config = { ...world, avatars: { p1: "users/mesa.webp" } };
+  const url = new URL(participantURL(config, users[1], {}, users, "https://foundry.example/game"));
+  assert.equal(url.searchParams.get("avatar"), "https://foundry.example/users/mesa.webp");
+  const custom = new URL(participantURL(config, users[1], { avatar: "custom", avatarURL: "https://images.example/personal.webp" }, users));
+  assert.equal(custom.searchParams.get("avatar"), "https://images.example/personal.webp");
+  const none = new URL(participantURL(config, users[1], { avatar: "none" }, users));
+  assert.equal(none.searchParams.has("avatar"), false);
+  for (const image of ["javascript:alert(1)", "data:image/svg+xml,test", "https://user:secret@example.com/a.webp"]) {
+    assert.throws(() => validateWorld({ ...world, avatars: { p1: image } }, users), /Avatar/);
+  }
+});
+
+test("seis participantes conservam IDs e exportam somente usuários associados, com nome e link solo", () => {
+  const group = [...users, ...[3, 4, 5].map(n => ({ id: `p${n}`, name: `Jogador ${n}`, isGM: false }))];
+  const config = { ...world, slots: fillMissingSlots(world.slots, group) };
+  assert.equal(Object.keys(config.slots).length, 6);
+  assert.equal(config.slots.p1, world.slots.p1);
+  const data = obsExport(config, group);
+  assert.equal(data.sources.length, 6);
+  for (const source of data.sources) {
+    assert.equal(new URL(source.url).searchParams.get("view"), config.slots[source.userId]);
+    assert.equal(source.streamId, config.slots[source.userId]);
+    assert.ok(source.name);
+  }
+  assert.equal(obsExport(config, [...group, { id: "no_slot", name: "Sem slot" }]).sources.length, 6);
+  assert.deepEqual(config.slots, fillMissingSlots(config.slots, group));
 });

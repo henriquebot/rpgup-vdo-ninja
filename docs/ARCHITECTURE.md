@@ -1,6 +1,6 @@
 # Arquitetura vigente: Room oficial VDO.Ninja no Foundry
 
-Data: 01/10/2026, America/Sao_Paulo. Alvos: **Foundry VTT v14 e v13**, conforme pedido adicional. Status: protótipo implementado, gate de mídia real ainda pendente.
+Data: 01/10/2026, America/Sao_Paulo. Alvos: **Foundry VTT v14 e v13**. Status: **produção 1.0.0**, após aprovação expressa do protótipo pelo usuário. Compatibilidade declarada `minimum: 13`, `verified: 14`, `maximum: 14`.
 
 **Este documento substitui a proposta anterior.** [ARCHITECTURE-OLD-MEDIAMTX.md](ARCHITECTURE-OLD-MEDIAMTX.md) foi preservado integralmente como histórico; suas decisões, serviços e roteiro não se aplicam ao projeto atual.
 
@@ -23,7 +23,7 @@ Não há servidor de mídia, LiveKit, MediaMTX, WHIP/WHEP direto, broker, backen
 
 ## Fonte de verdade e identidade
 
-`game.settings`, scope `world`, mantém uma configuração mínima em um único valor: `roomId`, `extraQuery`, `audio`, `directorUserId` e `slots`. O Foundry é a fonte de verdade; não existe dependência de uma API persistente de configuração de Rooms VDO.Ninja. Alterações feitas na UI Director são nativas da sessão VDO e não são importadas automaticamente para o Foundry.
+`game.settings`, scope `world`, mantém um único valor: `roomId`, `extraQuery`, `audio`, `directorUserId`, `slots`, `quality` e `avatars`. Os dois últimos são opcionais em dados antigos: preset automático e nenhum override de imagem. O Foundry é a fonte de verdade; não existe dependência de uma API persistente de configuração de Rooms VDO.Ninja. Alterações feitas na UI Director são nativas da sessão VDO e não são importadas automaticamente para o Foundry.
 
 O GM gera ou informa uma associação **Foundry userId → VDO.Ninja Stream ID**. **Gerar e salvar slots faltantes** grava a configuração no mundo, aguarda `game.settings.set` e confere o valor retornado pelo cache de Settings antes de anunciar sucesso. O getter devolve uma cópia para evitar alterações acidentais no objeto vivo. Os IDs não dependem do nome, da sessão nem da conexão. Slots existentes e de usuários removidos são preservados. Duplicatas/IDs inválidos são rejeitados. Um usuário não associado aguarda no dock; ao receber `onChange` do Setting mundial, abre seu primeiro iframe. Uma sessão existente recebe aviso e só reconecta por ação explícita.
 
@@ -36,7 +36,7 @@ Exemplo:
 
 Label vem do nome atual do usuário Foundry. Uma mudança de nome pode ser aplicada ao reconectar sem alterar o slot. O slot estável permite um OBS permanente entre reconexões; mudar Room/senha/slot altera o link. Os IDs são roteamento, **não prova criptográfica de identidade**. Room/senha e URLs são acessíveis aos participantes do World; não equivalem a segredos de servidor ou a um sistema externo de autorização Foundry.
 
-O painel GM é singleton, conserva o formulário/rascunho em rerenders, rejeita alterações feitas por outro GM enquanto havia um rascunho e informa falhas de gravação. Aplicar/reconectar no GM salva um rascunho aberto antes de ler a configuração atual. A conexão nunca gera IDs. O painel completo e presets continuam após o gate; preferências individuais de câmera/avatar/zoom foram autorizadas explicitamente após o teste inicial do usuário.
+O painel GM é singleton, conserva o formulário/rascunho em rerenders, rejeita alterações feitas por outro GM enquanto havia um rascunho e informa falhas de gravação. Aplicar/reconectar no GM salva um rascunho aberto antes de ler a configuração atual. A conexão e o reload nunca geram IDs. O painel organiza Room/áudio/Director/qualidade e participantes com avatar opcional e links OBS. Contagem de slots e presença são dados Foundry, não medição de mídia VDO.
 
 ## Iframe e parâmetros
 
@@ -60,7 +60,7 @@ O iframe delega `camera`, `autoplay`, `fullscreen`, `display-capture`, `picture-
 
 Não há `cleanoutput`, `autostart`, CSS injetado, acesso ao DOM cross-origin, manipulação do menu de contexto nem botões duplicados de câmera/microfone no dock. A UI normal da Room, o clique direito na própria câmera e nas demais e os controles de volume/opções devem ser testados dentro do iframe oficial. Carregar o documento do iframe não é prova de mídia conectada.
 
-Parâmetros adicionais aceitos inicialmente: `password`, `roombitrate`, `totalroombitrate`, `videobitrate`, `codec`, `width`, `height`, `fps`. Uma lista fechada evita aliases ou fragmentos que substituam `room`, `push`, `label`, `director`, UI ou transporte. Não há presets ou tuning automático de qualidade implementados.
+Parâmetros adicionais aceitos: `password`, `roombitrate`, `totalroombitrate`, `videobitrate`, `codec`, `width`, `height`, `fps`, `maxframerate`. Uma lista fechada evita aliases ou fragmentos que substituam `room`, `push`, `label`, `director`, UI ou transporte. Presets opcionais usam somente `roombitrate` e `maxframerate`, sem resolução ou codec forçado: automático (sem overrides), economia (200 kbps/20 fps), equilibrado (500/30) e mais detalhe (1.200/30). Avançados prevalecem. `maxframerate` permite fallback do dispositivo; `fps` estrito permanece somente como opção avançada explícita. O orçamento da Room pode limitar o preset mais detalhe; não há garantia de bitrate/resolução ou tuning automático.
 
 A API oficial `postMessage` foi investigada, mas não é necessária para a primeira integração: URLs e UI nativa bastam. Se um teste comprovar necessidade de comandos, usar somente a API oficial, origem exata, validação de `event.origin`, `event.source` e dados, sem wildcard, script arbitrário ou extração de tracks. Essa ponte não foi implementada antecipadamente.
 
@@ -72,7 +72,9 @@ Opções: esquerda, direita, topo, embaixo, **flutuante por padrão**. Preferên
 
 Flags `User` guardam preferências individuais por World: posição, largura lateral, altura da barra, geometria flutuante, abertura ao entrar, zoom, modo de avatar e URL personalizada. Preferências antigas de câmera, interface PC/Móvel e self-preview são ignoradas. Não altera a configuração mundial ao mover o dock. O zoom escala o iframe e aumenta inversamente seu viewport CSS, sem tocar seu DOM ou mudar `src`. Flex layout e ResizeObserver mantêm a área disponível ao redimensionar.
 
-O cabeçalho contém engrenagem e desacoplar, ambos somente com ícone, nome acessível e tooltip. A engrenagem expande/recolhe todas as opções, textos e status do módulo, recolhidos por padrão. Desacoplar retorna ao modo flutuante dentro do Foundry e mantém o iframe conectado. Opções expandidas rolam quando falta espaço. Erros que impedem a primeira conexão aparecem na sala; mudanças pendentes destacam a engrenagem. Abertura ao entrar é apenas uma preferência da janela, não ativação automática de câmera; desmarcá-la preserva a abertura manual.
+O cabeçalho contém reload, engrenagem e desacoplar, com ícone, nome acessível e tooltip. A engrenagem expande/recolhe opções em grupos, textos e status, recolhidos por padrão. Desacoplar retorna ao modo flutuante dentro do Foundry e mantém o iframe conectado. Reload atribui novamente a URL ativa ao mesmo iframe: navega somente a sala VDO e não salva o formulário GM nem altera preferências/IDs. Mantém opções pendentes para Aplicar/reconectar; reinicia apenas a conexão do cliente que clicou. Não usa acesso ao DOM cross-origin ou `location.reload` do Foundry.
+
+Opções expandidas rolam quando falta espaço. Media queries e container queries adaptam grupos e tabela à largura da janela, mesmo em monitor grande. Erros que impedem a primeira conexão aparecem na sala; mudanças pendentes destacam a engrenagem. Abertura ao entrar é somente uma preferência da janela. Um botão Câmeras VDO.Ninja inserido via hook público `renderSettings` permite reabrir pela sidebar; menu e API/macro continuam disponíveis. O botão é deduplicado em rerenders e suporta HTML de ApplicationV2/coleção jQuery.
 
 Reposicionar/redimensionar e renderizar novamente mantém o mesmo elemento iframe sem removê-lo da árvore DOM ou alterar `src`. Fechar remove o frame e encerra sua sessão; reabrir cria um único novo frame. Alterações do GM/nome/avatar mostram aviso; **Aplicar / reconectar** é a ação que troca a URL e reinicia a conexão. Preferências de tamanho não são sobrescritas só porque a viewport encolheu. Fechar cancela a preparação assíncrona do avatar para impedir criação tardia de iframe.
 
@@ -92,6 +94,8 @@ Na revisão .3, `prepareAvatar` resolve o caminho contra a página Foundry e faz
 
 A preferência/URL fica na flag do usuário; os bytes não são gravados nas flags. A miniatura é refeita em cada abertura/reconexão, inclusive após reload, e aparece nas configurações para conferência. Arquivos escolhidos somente no iframe não são extraídos/importados. A escolha de câmera é totalmente nativa: removidos campo de nome e overrides `vdo`/`videodevice` do módulo. PC/Móvel também foi removido por não oferecer o efeito visual esperado; a página oficial e o viewport do iframe continuam responsivos.
 
+Na 1.0.0, `avatars[userId]` permite ao GM definir uma imagem por usuário para a mesa, com caminho Foundry ou URL HTTP/HTTPS validada. No modo avatar Foundry/mesa, esse valor precede `User.avatar`; URL pessoal customizada e sem placeholder permanecem escolhas individuais. Vazio remove o override. Não altera o documento User, nem extrai/uploads arquivos da UI VDO. Alterações são aplicadas na próxima abertura ou Aplicar/reconectar; reload usa a URL já ativa. Slots e avatares de usuários removidos são preservados no Setting.
+
 ## OBS e áudio
 
 O painel GM mostra/copia um solo link por usuário, construído como:
@@ -102,19 +106,24 @@ https://vdo.ninja/?room=RPGUPPrototype123&view=slot_92md4&solo=&cleanoutput=
 
 Senha, codec e bitrate aplicáveis ao viewer são propagados. Constraints de captura, Director, `push` e preferências de preview não vão ao OBS. Os links usam somente a configuração salva, com aviso para alterações ainda não salvas e seleção manual quando clipboard não funcionar. O OBS é apenas mais um consumidor oficial; não há plugin ou automação OBS.
 
+Baixar links OBS exporta JSON com `format`, `version`, `roomId` e `sources` (nome, userId, streamId, URL, largura/altura sugeridas). Usa configuração salva e somente usuários atuais com associação, sem interferência de rascunhos. É uma lista para Browser Sources, não uma coleção importável de cenas OBS. Um Blob de download temporário é liberado após uso.
+
 O modo mundial de áudio é reversível: `discord` (inicial) usa `audiodevice=0` e `noaudio`, sem microfone delegado; `vdo` mantém os controles nativos sem overrides de áudio e delega microfone. Testar volume/mic no modo VDO e retornar à preferência da mesa. Não assumimos que áudio está permanentemente fora do projeto.
 
-## Gate e critérios
+## Aprovação e validação
 
 Primeira prova, em **cada geração**: 1 GM, 2 jogadores, três clientes de navegador, uma Room, um iframe por cliente, slots automáticos e persistentes, câmera e visão mútua, clique direito/controles, cinco posições do dock, resize, self-preview/PiP e três fontes solo OBS com reconexão. Registrar versões exatas, parâmetros, permissões e problemas em [PROTOTYPE-RESULTS.md](PROTOTYPE-RESULTS.md).
 
-Testes unitários e fixture de navegador verificam nosso código; não substituem essa prova. Somente se ela passar, avançar para 4–6 participantes, painel GM completo, presets e exportação organizada OBS. Os ajustes individuais solicitados nesta revisão não representam aprovação do gate. Falha fundamental → registrar e investigar o recurso oficial antes de propor outra arquitetura.
+O usuário aprovou o protótipo e autorizou produção após a revisão .3, abrindo o gate para painel refinado, presets, avatares e exportação. A associação/exportação foi testada com seis usuários; o painel percorre a coleção do World sem limite artificial de três. Isso não é uma medição de mídia com seis peers. Testes unitários, fixture e teste de UI oficial continuam separados da aprovação do usuário e de testes licenciados por geração; registrar falhas sem inventar uma arquitetura alternativa.
+
+Distribuição: manifest de atualização na main e artefato 1.0.0 na branch `v1.0.0`, que não acompanha mudanças futuras da main. Não há workflow, backend, instalação de dependências ou build no cliente. O arquivo GitHub contém módulo, fontes e documentação; o instalador Foundry localiza seu `module.json`.
 
 ## Fontes oficiais consultadas em 01/10/2026
 
 - [ApplicationV2 v13](https://foundryvtt.com/api/v13/classes/foundry.applications.api.ApplicationV2.html), [ApplicationV2 v14](https://foundryvtt.com/api/v14/classes/foundry.applications.api.ApplicationV2.html), [ClientSettings v13](https://foundryvtt.com/api/v13/classes/foundry.helpers.ClientSettings.html).
 - [Room](https://docs.vdo.ninja/advanced-settings/setup-parameters/room), [push e IDs permanentes](https://docs.vdo.ninja/advanced-settings/setup-parameters/push), [Director](https://docs.vdo.ninja/advanced-settings/director-parameters/director), [showdirector](https://docs.vdo.ninja/advanced-settings/director-parameters/and-showdirector).
 - [Scene Preview / previewmode](https://docs.vdo.ninja/advanced-settings/director-parameters/and-previewmode).
+- [roombitrate](https://docs.vdo.ninja/advanced-settings/video-bitrate-parameters/roombitrate), [maxframerate](https://docs.vdo.ninja/advanced-settings/video-parameters/and-maxframerate), [fps](https://docs.vdo.ninja/advanced-settings/video-parameters/and-fps), [Manifest e compatibilidade](https://foundryvtt.com/article/module-development/).
 - [Iframe API](https://docs.vdo.ninja/guides/iframe-api-documentation/iframe-api-basics), [pipme](https://docs.vdo.ninja/advanced-settings/design-parameters/and-pipme-alpha), [minipreview](https://docs.vdo.ninja/advanced-settings/video-parameters/and-minipreview).
 - [Avatar](https://docs.vdo.ninja/advanced-settings/video-parameters/and-avatar), [solo](https://docs.vdo.ninja/advanced-settings/mixer-scene-parameters/and-solo), [password](https://docs.vdo.ninja/advanced-settings/setup-parameters/and-password).
 - [audiodevice](https://docs.vdo.ninja/advanced-settings/setup-parameters/audiodevice), [noaudio](https://docs.vdo.ninja/advanced-settings/audio-parameters/noaudio).

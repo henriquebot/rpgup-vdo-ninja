@@ -10,4 +10,4 @@ for (const name of ["module.json", "src", "styles", "README.md", "docs"]) {
 }
 const manifest = JSON.parse(await readFile(path.join(target, "module.json"), "utf8"));
 console.log(`Módulo ${manifest.version}: ${target}`);
-console.log("Copie a pasta rpgup-vdo-ninja para Data/modules. Ative apenas em um World de teste.");
+console.log("Copie a pasta rpgup-vdo-ninja para Data/modules e habilite RPGUP VDO.Ninja no World.");

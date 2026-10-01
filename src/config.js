@@ -1,8 +1,14 @@
 export const MODULE_ID = "rpgup-vdo-ninja";
 export const VDO_BASE = "https://vdo.ninja/";
 export const DOCKS = { left: "Esquerda", right: "Direita", top: "Topo", bottom: "Embaixo", floating: "Flutuante" };
-export const AVATARS = { foundry: "Avatar do usuário Foundry", custom: "Imagem por URL", none: "Sem placeholder" };
-export const DEFAULT_WORLD = { roomId: "", extraQuery: "", audio: "discord", directorUserId: "", slots: {} };
+export const AVATARS = { foundry: "Avatar Foundry / da mesa", custom: "Imagem por URL", none: "Sem placeholder" };
+export const QUALITY_PRESETS = {
+  native: { label: "Automático · VDO.Ninja", help: "Mantém a qualidade adaptativa do VDO. Nenhum limite adicional é imposto pelo módulo.", params: {} },
+  economy: { label: "Economia · 200 kbps", help: "Limita cada vídeo enviado aos outros jogadores a 200 kbps e captura a até 20 fps. Útil em conexões ou computadores modestos.", params: { roombitrate: "200", maxframerate: "20" } },
+  balanced: { label: "Equilibrado · 500 kbps", help: "Limita cada vídeo enviado aos jogadores a 500 kbps e captura a até 30 fps. A qualidade efetiva é adaptativa.", params: { roombitrate: "500", maxframerate: "30" } },
+  detail: { label: "Mais detalhe · 1.200 kbps", help: "Permite até 1.200 kbps por vídeo para jogadores e captura a até 30 fps. O orçamento da Room e a conexão ainda limitam a qualidade; pode exigir ajuste pelo Director.", params: { roombitrate: "1200", maxframerate: "30" } }
+};
+export const DEFAULT_WORLD = { roomId: "", extraQuery: "", audio: "discord", directorUserId: "", slots: {}, quality: "native", avatars: {} };
 export const DEFAULT_PREFS = {
   dock: "floating", autoOpen: true,
   zoom: 1, avatar: "foundry", avatarURL: "",
@@ -11,8 +17,8 @@ export const DEFAULT_PREFS = {
 };
 
 // Deliberately small: extra parameters cannot change identity, transport, UI or role.
-const EXTRA_PARAMS = new Set(["password", "roombitrate", "totalroombitrate", "videobitrate", "codec", "width", "height", "fps"]);
-const NUMERIC_PARAMS = new Set(["roombitrate", "totalroombitrate", "videobitrate", "width", "height", "fps"]);
+const EXTRA_PARAMS = new Set(["password", "roombitrate", "totalroombitrate", "videobitrate", "codec", "width", "height", "fps", "maxframerate"]);
+const NUMERIC_PARAMS = new Set(["roombitrate", "totalroombitrate", "videobitrate", "width", "height", "fps", "maxframerate"]);
 
 export function parseExtraQuery(input = "") {
   if (typeof input !== "string" || input.includes("#") || input.includes("?")) {
@@ -48,7 +54,19 @@ export function validateWorld(input, users = []) {
     used.add(streamId);
     slots[userId] = streamId;
   }
-  return { roomId, extraQuery: input.extraQuery.trim(), audio: input.audio, directorUserId, slots };
+  const quality = input.quality ?? "native";
+  if (!Object.hasOwn(QUALITY_PRESETS, quality)) throw new Error("Preset de qualidade inválido.");
+  const avatars = {};
+  if (input.avatars !== undefined && (!input.avatars || typeof input.avatars !== "object" || Array.isArray(input.avatars))) throw new Error("Associação de avatares inválida.");
+  for (const [userId, image] of Object.entries(input.avatars ?? {})) {
+    if (["__proto__", "constructor", "prototype"].includes(userId) || typeof image !== "string" || image.length > 2048) throw new Error("Avatar de usuário inválido.");
+    if (!image.trim()) continue;
+    let source;
+    try { source = new URL(image.trim(), "https://foundry.invalid/"); } catch { throw new Error(`Avatar inválido para ${userId}.`); }
+    if (!["http:", "https:"].includes(source.protocol) || source.username || source.password) throw new Error(`Avatar de ${userId}: use um caminho Foundry ou URL HTTP/HTTPS sem credenciais.`);
+    avatars[userId] = image.trim();
+  }
+  return { roomId, extraQuery: input.extraQuery.trim(), audio: input.audio, directorUserId, slots, quality, avatars };
 }
 
 export function fillMissingSlots(slots, users, randomBytes = size => crypto.getRandomValues(new Uint8Array(size))) {
