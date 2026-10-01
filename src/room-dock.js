@@ -1,7 +1,8 @@
-import { DOCKS, PREVIEWS, INTERFACES, AVATARS, dockPosition, normalizePrefs } from "./config.js";
+import { DOCKS, AVATARS, dockPosition, normalizePrefs } from "./config.js";
 import { participantURL } from "./urls.js";
+import { prepareAvatar } from "./avatar.js";
 import { worldConfig, userPrefs, savePrefs } from "./settings.js";
-import { element, select, field, report } from "./dom.js";
+import { element, select, field, tooltip, report } from "./dom.js";
 import { WorldConfig } from "./world-config.js";
 
 const ApplicationV2 = foundry.applications.api.ApplicationV2;
@@ -11,6 +12,7 @@ export class RoomDock extends ApplicationV2 {
   static DEFAULT_OPTIONS = {
     id: "rpgup-vdo-room", classes: ["rpgup-vdo", "rpgup-room-dock"],
     window: { title: "RPGUP VDO.Ninja", icon: "fas fa-video", resizable: true, minimizable: false },
+    actions: { toggleModuleSettings: this.prototype._toggleSettings, undock: this.prototype._undock },
     position: { width: 720, height: 600 }
   };
 
@@ -24,51 +26,88 @@ export class RoomDock extends ApplicationV2 {
     this.onConfigure = () => new WorldConfig().render({ force: true }).catch(report);
   }
 
+  async _renderFrame(options) {
+    const frame = await super._renderFrame(options);
+    const header = frame.querySelector(".window-header");
+    this._settingsButton = tooltip(element("button", undefined, {
+      type: "button", class: "header-control icon fa-solid fa-gear", "data-action": "toggleModuleSettings",
+      "aria-label": "Configurações da dock", "aria-expanded": "false", "aria-controls": "rpgup-vdo-settings"
+    }), "Mostrar ou ocultar posição, zoom, avatar e opções desta janela. Câmera e PiP ficam no próprio VDO.Ninja.");
+    this._undockButton = tooltip(element("button", undefined, {
+      type: "button", class: "header-control icon fa-solid fa-up-right-from-square", "data-action": "undock",
+      "aria-label": "Desacoplar janela"
+    }), "Transformar o dock de borda em janela flutuante dentro do Foundry, sem reconectar a chamada.");
+    const close = header.querySelector('[data-action="close"]');
+    header.insertBefore(this._settingsButton, close);
+    header.insertBefore(this._undockButton, close);
+    return frame;
+  }
+
+  _toggleSettings() {
+    if (!this._settings) return;
+    this._settings.hidden = !this._settings.hidden;
+    this._settingsButton.setAttribute("aria-expanded", String(!this._settings.hidden));
+  }
+
+  _undock() {
+    this.prefs.dock = "floating";
+    this._dockControl.value = "floating";
+    this._layout();
+    this._scheduleSave();
+  }
+
   async _renderHTML() {
     if (this._root) return this._root;
     this._listeners = new AbortController();
     this._root = element("section", undefined, { class: "rpgup-room-body" });
+    this._settings = element("section", undefined, { id: "rpgup-vdo-settings", class: "rpgup-settings", hidden: "", "aria-label": "Opções da dock" });
     const toolbar = element("div", undefined, { class: "rpgup-toolbar" });
     const dock = select(DOCKS, this.prefs.dock, "Posição do dock");
-    const preview = select(PREVIEWS, this.prefs.preview, "Self-preview");
+    this._dockControl = dock;
     const auto = element("input", undefined, { type: "checkbox" });
     auto.checked = this.prefs.autoOpen;
     const size = element("input", undefined, { type: "range", min: "320", max: "1200", step: "10", "aria-label": "Tamanho do dock" });
     this._size = size;
     const reconnect = element("button", "Aplicar / reconectar", { type: "button" });
-    const smaller = element("button", "−", { type: "button", "aria-label": "Diminuir zoom" });
-    const larger = element("button", "+", { type: "button", "aria-label": "Aumentar zoom" });
+    const smaller = tooltip(element("button", "−", { type: "button", "aria-label": "Diminuir zoom" }), "Diminuir os controles e vídeos do VDO, mostrando mais conteúdo. Não reconecta.");
+    const larger = tooltip(element("button", "+", { type: "button", "aria-label": "Aumentar zoom" }), "Aumentar os controles e vídeos do VDO. Não reconecta.");
     this._zoomReset = element("button", `${Math.round(this.prefs.zoom * 100)}%`, { type: "button", "aria-label": "Restaurar zoom para 100%" });
     const zoom = element("div", undefined, { class: "rpgup-zoom", role: "group", "aria-label": "Zoom do VDO.Ninja" });
     zoom.append(smaller, this._zoomReset, larger);
-    toolbar.append(field("Dock", dock), field("Self-preview", preview), zoom, reconnect);
+    tooltip(this._zoomReset, "Voltar o zoom para 100%, sem reconectar a chamada.");
+    tooltip(reconnect, "Salvar suas preferências e reabrir a sala. Isso interrompe e reinicia sua câmera. No GM, salva também o rascunho aberto de World / OBS.");
+    toolbar.append(field("Posição da janela", dock, "Flutuante pode ser movida e redimensionada. As bordas reservam espaço da UI do Foundry. Mudar posição não reconecta."), zoom, reconnect);
     if (game.user.isGM) {
       const config = element("button", "World / OBS", { type: "button" });
       config.addEventListener("click", () => this.onConfigure?.(), { signal: this._listeners.signal });
+      tooltip(config, "Configurar a Room compartilhada, os IDs dos usuários e copiar links individuais para OBS. Somente o GM altera estes dados.");
       toolbar.append(config);
     }
-    const options = element("details", undefined, { class: "rpgup-options" });
-    options.append(element("summary", "Opções de câmera, avatar e interface"));
     const settings = element("div", undefined, { class: "rpgup-toolbar rpgup-preferences" });
-    const interfaceMode = select(INTERFACES, this.prefs.interface, "Interface VDO");
     const avatar = select(AVATARS, this.prefs.avatar, "Placeholder");
-    const camera = element("input", undefined, { type: "text", maxlength: "256", placeholder: "Padrão do navegador", "aria-label": "Câmera padrão" });
-    camera.value = this.prefs.camera;
     const avatarURL = element("input", undefined, { type: "url", maxlength: "2048", placeholder: "https://…/imagem.webp", "aria-label": "URL do placeholder" });
     avatarURL.value = this.prefs.avatarURL;
     avatarURL.disabled = this.prefs.avatar !== "custom";
-    settings.append(field("Câmera padrão (nome)", camera), field("Placeholder", avatar), field("URL da imagem", avatarURL), field("Interface VDO", interfaceMode), field("Abrir ao entrar", auto), field("Tamanho na borda", size));
-    options.append(settings, element("p", "Vazio usa a câmera padrão do navegador; informe o nome para preferir outra. O avatar Foundry acompanha seu usuário. Imagens devem ser acessíveis pelo VDO.Ninja. Móvel ajusta o funcionamento do VDO; o zoom ajusta o tamanho dos controles."));
+    settings.append(
+      field("Imagem quando a câmera está desligada", avatar, "Avatar Foundry usa a imagem do seu usuário e a reaplica em cada sessão. Imagem por URL usa o endereço salvo abaixo. Sem placeholder deixa o comportamento padrão do vídeo desligado. Clique em Aplicar após mudar."),
+      field("URL da imagem", avatarURL, "Endereço da imagem personalizada. Imagens do próprio Foundry são lidas com sua sessão; imagens de outros sites precisam permitir leitura pelo navegador. A URL é lembrada por usuário."),
+      field("Abrir esta janela ao entrar no mundo", auto, "Marcada: abre a dock ao entrar no World. Desmarcada: abra pelo menu do módulo ou macro. Esta opção não liga sua câmera automaticamente."),
+      field("Largura / altura na borda", size, "Ajusta a largura nas bordas laterais ou a altura no topo/embaixo. Em modo flutuante, use a alça de redimensionamento da janela.")
+    );
+    this._avatarPreview = element("img", undefined, { class: "rpgup-avatar-preview", alt: "Imagem preparada para o placeholder", hidden: "" });
+    this._avatarStatus = element("p", "", { class: "rpgup-avatar-status", role: "status" });
+    this._directorHelp = element("p", "Director inicia em Scene Preview. Use 🪟 Toggle Director Vision no VDO para alternar entre a cena e o painel de direção.", { hidden: "", class: "rpgup-director-help" });
+    this._settings.append(toolbar, settings, this._avatarPreview, this._avatarStatus, this._directorHelp,
+      element("p", "Câmera e microfone: engrenagem do VDO. Preview e PiP: controles/menu de contexto do próprio vídeo; Ctrl+Alt+P alterna o PiP da sua câmera (Cmd+Alt+P no Mac), com foco no VDO.")
+    );
     const remember = (control, key) => control.addEventListener("change", () => {
       this.prefs[key] = control.value.trim();
       avatarURL.disabled = this.prefs.avatar !== "custom";
       this._scheduleSave();
       this.configChanged();
     }, { signal: this._listeners.signal });
-    remember(camera, "camera");
     remember(avatar, "avatar");
     remember(avatarURL, "avatarURL");
-    remember(interfaceMode, "interface");
     const changeZoom = value => {
       this.prefs.zoom = Math.round(Math.max(0.5, Math.min(1.5, value)) * 100) / 100;
       this._zoomFrame();
@@ -79,16 +118,13 @@ export class RoomDock extends ApplicationV2 {
     this._zoomReset.addEventListener("click", () => changeZoom(1), { signal: this._listeners.signal });
     this._status = element("p", "Ative sua câmera usando os controles do VDO.Ninja.", { class: "rpgup-status", role: "status" });
     this._frameHost = element("div", undefined, { class: "rpgup-frame-host" });
-    this._root.append(toolbar, options, this._status, this._frameHost);
+    this._alert = element("p", "", { class: "rpgup-connection-alert", role: "status", hidden: "" });
+    this._settings.append(this._status);
+    this._root.append(this._settings, this._frameHost, this._alert);
     dock.addEventListener("change", () => {
       this.prefs.dock = dock.value;
       this._layout();
       this._scheduleSave();
-    }, { signal: this._listeners.signal });
-    preview.addEventListener("change", () => {
-      this.prefs.preview = preview.value;
-      this._scheduleSave();
-      this.configChanged();
     }, { signal: this._listeners.signal });
     auto.addEventListener("change", () => {
       this.prefs.autoOpen = auto.checked;
@@ -126,12 +162,39 @@ export class RoomDock extends ApplicationV2 {
   async _connect({ saveDraft = true } = {}) {
     if (this._connecting) return;
     this._connecting = true;
+    const signal = this._listeners.signal;
     try {
       if (saveDraft && game.user.isGM && WorldConfig.instance?.dirty) await WorldConfig.instance.saveDraft();
       if (saveDraft) await this._persist();
+      if (signal.aborted) return;
       if (!window.isSecureContext) throw new Error("Abra o Foundry por HTTPS (ou localhost) para permitir a câmera no iframe.");
-      const world = worldConfig();
-      const url = participantURL(world, game.user, this.prefs, Array.from(game.users));
+      let world = worldConfig();
+      // Validate room/assignment before fetching an image for a waiting player.
+      participantURL(world, game.user, this.prefs, Array.from(game.users), location.href, null);
+      let avatar;
+      try {
+        const prepared = await prepareAvatar(game.user, this.prefs, { signal });
+        avatar = prepared.value;
+        this._avatarPreview.hidden = !avatar || avatar === "default";
+        if (!this._avatarPreview.hidden) this._avatarPreview.src = avatar;
+        this._avatarStatus.textContent = avatar ? "Placeholder preparado e aplicado à entrada da sala. Ele aparece quando a câmera está desligada." : "Placeholder desativado.";
+      } catch (error) {
+        if (signal.aborted) return;
+        avatar = "default";
+        this._avatarPreview.hidden = true;
+        this._avatarStatus.textContent = `Placeholder personalizado não aplicado: ${error.message}`;
+        ui.notifications.warn(this._avatarStatus.textContent);
+      }
+      if (signal.aborted) return;
+      // Settings may have arrived while a static image was being fetched.
+      world = worldConfig();
+      const url = participantURL(world, game.user, this.prefs, Array.from(game.users), location.href, avatar);
+      const director = new URL(url).searchParams.has("director");
+      this._directorHelp.hidden = !director;
+      if (director && !this._directorNoticeShown) {
+        ui.notifications.info(this._directorHelp.textContent);
+        this._directorNoticeShown = true;
+      }
       if (!this._iframe) {
         this._iframe = element("iframe", undefined, {
           title: "Room oficial do VDO.Ninja", referrerpolicy: "no-referrer", allowfullscreen: ""
@@ -144,14 +207,24 @@ export class RoomDock extends ApplicationV2 {
       }
       this._iframe.allow = "camera; autoplay; fullscreen; display-capture; picture-in-picture" + (world.audio === "vdo" ? "; microphone" : "");
       this._pending = false;
+      this._settingsButton.classList.remove("rpgup-attention");
+      tooltip(this._settingsButton, "Mostrar ou ocultar posição, zoom, avatar e opções desta janela. Câmera e PiP ficam no próprio VDO.Ninja.");
+      this._alert.hidden = true;
       this._activeURL = url;
       this._iframe.src = url;
       this._zoomFrame();
       this._status.textContent = "Abrindo a Room. Ative sua câmera na UI nativa do VDO.Ninja. Reconectar encerra a conexão anterior.";
     } catch (error) {
-      this._status.textContent = error.message;
+      if (!signal.aborted) {
+        this._status.textContent = error.message;
+        this._settingsButton?.classList.add("rpgup-attention");
+        if (this._settingsButton) tooltip(this._settingsButton, error.message + " Abra as configurações para conferir.");
+        this._alert.textContent = error.message;
+        this._alert.hidden = Boolean(this._iframe);
+      }
     } finally {
-      this._connecting = false;
+      // An aborted avatar fetch may finish after this dock was reopened.
+      if (this._listeners.signal === signal) this._connecting = false;
     }
   }
 
@@ -163,7 +236,9 @@ export class RoomDock extends ApplicationV2 {
       return;
     }
     this._pending = true;
-    this._status.textContent = "Configuração alterada. Clique em Aplicar / reconectar para usá-la (a câmera será desconectada).";
+    this._settingsButton?.classList.add("rpgup-attention");
+    this._status.textContent = "Configuração alterada. Abra a engrenagem e clique em Aplicar / reconectar para usá-la (a câmera será desconectada).";
+    if (this._settingsButton) tooltip(this._settingsButton, this._status.textContent);
   }
 
   _layout() {
@@ -178,6 +253,7 @@ export class RoomDock extends ApplicationV2 {
       this._size.disabled = this.prefs.dock === "floating";
       this._size.min = side ? "320" : "240";
       this._size.value = String(side ? this.prefs.sideWidth : this.prefs.barHeight);
+      this._undockButton.disabled = this.prefs.dock === "floating";
     } finally {
       this._layingOut = false;
     }
@@ -242,6 +318,7 @@ export class RoomDock extends ApplicationV2 {
   _onClose(options) {
     super._onClose(options);
     this._listeners?.abort();
+    this._connecting = false;
     this._observer?.disconnect();
     this._observer = null;
     document.body.classList.remove("rpgup-vdo-docked");
@@ -249,6 +326,7 @@ export class RoomDock extends ApplicationV2 {
     // Removing the iframe closes its session/capture; reopening creates only one frame.
     this._iframe?.remove();
     this._iframe = this._root = this._status = this._resizeListener = null;
+    this._settings = this._alert = null;
     this._activeURL = null;
   }
 }

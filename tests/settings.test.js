@@ -24,9 +24,10 @@ test("rascunhos não alteram o cache do mundo e saves precisam de confirmação 
 test("preferências antigas migram uma vez para flutuante e preservam as demais escolhas", () => {
   globalThis.game = { user: { getFlag: () => ({ dock: "right", preview: "mini", autoOpen: false }) } };
   assert.equal(userPrefs().dock, "floating");
-  assert.equal(userPrefs().preview, "mini");
+  assert.equal(userPrefs().preview, undefined);
   assert.equal(userPrefs().autoOpen, false);
   game.user.getFlag = () => ({ schemaVersion: 2, dock: "left", camera: "OBS", zoom: 0.8 });
   assert.equal(userPrefs().dock, "left");
   assert.equal(userPrefs().zoom, 0.8);
+  assert.equal(userPrefs().camera, undefined);
 });

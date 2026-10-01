@@ -1,8 +1,8 @@
 # Resultados do primeiro protótipo
 
-Data: **01/10/2026**, America/Sao_Paulo. Módulo atual: `0.1.0-prototype.2`. Escopo: **1 GM + 2 jogadores**, primeiro na v14 e depois na v13.
+Data: **01/10/2026**, America/Sao_Paulo. Módulo atual: `0.1.0-prototype.3`. Escopo: **1 GM + 2 jogadores**, primeiro na v14 e depois na v13.
 
-**Gate: PENDENTE — NÃO avançar para 4–6 participantes, presets ou produto completo.** O usuário relatou sucesso parcial do GM no World, mas o jogador ficou sem associação e os slots pareciam ser perdidos ao reconectar. As correções abaixo passaram nos testes de código; falta repetir a sessão real. Câmeras entre três clientes, menus, PiP e OBS ainda não foram validados pelo agente.
+**Gate: PENDENTE — NÃO avançar para 4–6 participantes, presets ou produto completo.** Após a revisão .2, o usuário informou que as correções funcionaram, mas apontou avatar Foundry ainda ausente e controles da dock ocupando espaço. A geração e a matriz de mídia dessa sessão não foram informadas. A revisão .3 passou nos testes de código e em uma prova limitada de UI na página oficial VDO; câmeras entre três clientes, menus com mídia, PiP e OBS ainda não foram validados pelo agente.
 
 ## Retorno do usuário e revisão .2
 
@@ -12,6 +12,16 @@ O código anterior gerava IDs somente no formulário, recriava o formulário a c
 
 Por solicitação adicional, flutuante passa a ser padrão (com migração individual uma vez), bordas reservam espaço da UI, zoom 50–150% não recarrega, câmera padrão usa `vdo=1` com nome opcional, avatar usa a imagem do usuário Foundry ou URL salva e interface admite Automático/PC/Móvel. São opções nativas do VDO e apresentação do iframe. Avatar e câmera reais ainda precisam de prova; essa extensão expressamente solicitada não fecha o gate.
 
+## Retorno do usuário e revisão .3
+
+O usuário confirmou que as correções anteriores funcionaram e pediu: aviso sobre Toggle Director Vision e Scene Preview inicial; opções recolhidas atrás de uma engrenagem no cabeçalho; remoção de câmera por nome e PC/Móvel; avatar Foundry aplicado entre sessões; explicação de abertura ao entrar e tooltips para as opções. Esse relato não especifica a geração usada nem aprova a matriz de vídeo/OBS.
+
+Todas as opções e textos da dock agora ficam recolhidos por padrão. Engrenagem e desacoplar são ícones no cabeçalho; desacoplar conserva a chamada em uma janela flutuante dentro do Foundry. Os controles têm tooltips. Abertura ao entrar foi mantida com explicação de que abre a janela, sem ativar câmera, e teste da abertura manual quando desmarcada. Câmera por nome, PC/Móvel e self-preview foram removidos; dispositivos e previews usam a UI nativa do VDO. O Director designado recebe `previewmode` e aviso sobre o toggle nativo.
+
+O HTML VDO define `crossOrigin="Anonymous"` em `defaultAvatar2`. O arquivo público `https://v14.rpgup.com.br/icons/svg/mystery-man.svg`, lido com `Origin: https://vdo.ninja`, respondeu HTTP 200 sem `Access-Control-Allow-Origin`: o uso direto da URL pelo VDO é bloqueado. A revisão .3 lê a imagem na origem Foundry e prepara uma miniatura estática incorporada no parâmetro oficial `avatar`. Preferência e URL continuam nas flags; a imagem é preparada novamente a cada sessão. Falhas mostram aviso e usam `avatar=default`, sem impedir entrada na sala. [Detalhes e limites](ARCHITECTURE.md#câmera-e-avatar).
+
+`npm run test:official-ui` abriu a página oficial VDO.Ninja **31.1** no Edge **154.0.4258.48**, usando uma imagem de teste sem CORS lida pelo cliente pai. A imagem incorporada foi decodificada com largura de 256 px; leitura de pixel `[233,179,90,255]` e exportação do canvas confirmaram que ela é utilizável pelo VDO sem canvas contaminado. O estado inicial `session.switchMode=true` e duas alternâncias do botão real `#togglePreviewMode` passaram. O teste bloqueou todos os WebSockets e não concedeu câmera/microfone: **não houve peers, captura ou validação do placeholder transmitido**. O teste consulta uma página mutável; registrar novamente o build em futuras provas.
+
 ## Ambientes identificados
 
 | Ambiente | Versão exata observada | Tipo de evidência | Sessão do módulo |
@@ -20,7 +30,7 @@ Por solicitação adicional, flutuante passa a ser padrão (com migração indiv
 | `https://vtt.rpgup.com.br/`, World informado `crown-of-the-oathbreaker` | **13.351** | Página pública `/auth`: Version 13 Build 351 | Não realizada; sem login/instalação/alteração do World |
 | Foundry instalado localmente | **13.351**, Stable | `resources/app/package.json`; leitura do contrato ApplicationV2/ClientSettings | Não iniciado nem modificado |
 | Navegador de teste de código | **Microsoft Edge / Chromium 154.0.4258.48**, headless, Windows | `browser.version()` e executável instalado | Fixture, não Foundry real |
-| VDO.Ninja oficial consultado | **https://vdo.ninja/**, `session.version = "31.1"` | HTML público, consulta em 01/10/2026 | Consulta HTTP; não sessão de mídia |
+| VDO.Ninja oficial consultado | **https://vdo.ninja/**, `session.version = "31.1"` | HTML público e prova de avatar/Scene Preview em 01/10/2026 | UI real com WebSockets bloqueados; sem sessão de mídia |
 | OBS | Versão a registrar no teste real | Instalado localmente; não iniciado/configurado | Não testado |
 
 Snapshot do HTML oficial VDO.Ninja: consulta às **10:46:50 America/Sao_Paulo** (13:46:50 UTC), 233.069 bytes, SHA-256 `4a7aa9a1bd3f19a1ffa1eb9ff3f4f72538eb087294db405f8c91fecc85dcaf1c`. Não identifica um commit upstream nem garante que os demais assets ou a próxima sessão usem o mesmo build. Confirmar novamente versão/URL ao executar a prova.
@@ -43,13 +53,13 @@ Fixture de navegador (dados fictícios, sem conexão ao VDO real):
 }
 ```
 
-Guest: `room`, `push`, `label`; Discord acrescenta `audiodevice=0`, `noaudio`; teste de preview acrescentou `pipme`. Modo VDO remove os overrides de áudio e delega microfone. Teste de URL Director: `director=FixtureRoom123`, `showdirector=1`, preservando `push=slot_gm`. Solo: `room`, `view=<slot>`, `solo`, `cleanoutput`, `password` e `noaudio` no modo Discord. `autostart` ausente em todos os modos de preview.
+Guest: `room`, `push`, `label`; Discord acrescenta `audiodevice=0`, `noaudio`; avatar usa Data URL preparado, `default` ou parâmetro ausente conforme a preferência. Modo VDO remove os overrides de áudio e delega microfone. URL Director: `director=FixtureRoom123`, `showdirector=1`, `previewmode`, preservando `push=slot_gm`. Solo: `room`, `view=<slot>`, `solo`, `cleanoutput`, `password` e `noaudio` no modo Discord. `autostart`, câmera por nome, `mobile`/`notmobile` e overrides de preview ausentes.
 
 Nos testes unitários, a configuração fictícia incluiu também `roombitrate=500`, `width=1280`, `fps=30`; constraints de publicação não foram propagadas aos links OBS. Os valores acima não são um preset nem uma medição de qualidade.
 
 ## O que passou no código
 
-Na revisão .2, `npm test`: **12 testes passaram**. `npm run check`: manifest, arquivos referenciados e sintaxe passaram. `npm run test:browser` com Playwright + Edge instalado: passou com **zero erros de página**. A fixture implementa um substituto limitado do contrato ApplicationV2 e intercepta a URL do iframe; não inclui Foundry licenciado ou WebRTC VDO. Settings retorna um objeto vivo e a fixture transmite alterações do mundo entre páginas via eventos de storage para verificar os clientes; isso não testa o socket real do Foundry.
+Na revisão .3, `npm test`: **12 testes passaram**. `npm run check`: manifest, arquivos referenciados e sintaxe passaram. `npm run test:browser` com Playwright + Edge instalado: passou com **zero erros de página**. A fixture implementa um substituto limitado do contrato ApplicationV2 e intercepta a URL do iframe; não inclui Foundry licenciado ou WebRTC VDO. Settings retorna um objeto vivo e a fixture transmite alterações do mundo entre páginas via eventos de storage para verificar os clientes; isso não testa o socket real do Foundry. A prova optativa de UI oficial descrita acima é separada desta fixture.
 
 | Verificação | Resultado | Limite |
 | --- | --- | --- |
@@ -70,13 +80,19 @@ Na revisão .2, `npm test`: **12 testes passaram**. `npm run check`: manifest, a
 | Jogador criado com painel aberto aparece sem perder o rascunho | Passou | Evento `createUser` e coleção simulados; não teste com quarto publisher |
 | Bordas reservam área da interface; flutuante/fechar liberam | Passou | DOM/layout representativos v13, não UI real v13/v14 |
 | Zoom não navega e mantém preenchimento após resize | Passou | Edge, viewports 1440×900, 900×650, 390×640 e 360×280 |
-| Câmera, avatar, zoom e modo móvel persistem após reload | Passou | Flags simuladas e URLs, não captura/fallback de imagem |
+| Engrenagem/desacoplar no cabeçalho; opções recolhidas; tooltips; resize com sala preenchida | Passou | Fixture, não cabeçalho real Foundry |
+| Avatar Foundry sem CORS, URL personalizada e preferência persistem após reload | Passou | Imagem estática preparada e flags da fixture; sem peers |
+| Falha de leitura de avatar informa erro e usa padrão VDO; trocar para Foundry recupera | Passou | HTTP 404 e protocolo rejeitado injetados na fixture |
+| Fechar durante fetch de avatar cancela conexão; reabertura imediata cria somente um iframe | Passou | Imagem com resposta pendente na fixture |
+| Abertura ao entrar desmarcada conserva escolha e permite abertura manual | Passou | Evento ready e menu simulados |
+| Director inicia em Scene Preview; aviso uma vez; só GM designado recebe parâmetro | Passou | Fixture e construção de URL; toggle também conferido no VDO real |
+| Opções removidas não aparecem nem alteram a URL, mesmo com flags antigas | Passou | Normalização e fixture |
 
 A compatibilidade foi construída contra os contratos documentados v13/v14 e conferida também no código local da v13.351. Não há `compatibility.verified` no manifest: **ambas as gerações ainda exigem validação funcional real**.
 
 ## O que ainda não funcionou ou não foi testado
 
-O retorno real do usuário acima confirma uma falha na primeira integração do jogador e problemas de preferências. A tabela continua pendente por geração porque não houve prova observada pelo agente nem reteste da revisão .2. Não confundir testes de código com aprovação de mídia.
+O retorno do usuário confirma recuperação do fluxo após a revisão .2 e a necessidade de corrigir o avatar. A tabela continua pendente por geração porque o agente não observou uma sessão de mídia completa e o relato não separou as duas gerações. Não confundir testes de código/UI com aprovação de mídia.
 
 | Teste exigido | v14.367 | v13.351 | Evidência necessária |
 | --- | --- | --- | --- |
@@ -90,12 +106,12 @@ O retorno real do usuário acima confirma uma falha na primeira integração do 
 | GM guest versus GM Director | Pendente | Pendente | Publicar GM no mesmo slot e comparar ações |
 | Câmera, microfone, volume/opções nativos | Pendente | Pendente | Testar modo VDO, depois retornar ao modo escolhido |
 | Resize/reposição em sessão de mídia | Pendente | Pendente | Câmera e participantes permanecem conectados |
-| Self-preview `minipreview` / `pipme` | Pendente | Pendente | Preview local, gesto necessário, PiP móvel |
+| Self-preview / mini preview / PiP nativos | Pendente | Pendente | Preview local pelos controles VDO, gesto necessário, PiP móvel |
 | PiP sem autorrecepção de rede | Pendente | Pendente | Não há `view` próprio/segundo iframe; observar operação VDO |
 | Solo link em Browser Source OBS | Pendente | Pendente | Uma câmera por source, reconexão sem editar URL |
 | `postMessage` oficial | Não necessário inicialmente | Não necessário inicialmente | Só testar/adicionar se uma necessidade real surgir |
 
-O módulo lembra o tipo de preview; **não implementa persistência de posição/tamanho do PiP de sistema**. Avatar por URL/Foundry foi implementado por solicitação explícita do usuário usando a [opção oficial](https://docs.vdo.ninja/advanced-settings/video-parameters/and-avatar). Falta conferir carregamento/CORS da imagem e vídeo mutado/sem dispositivo entre peers e no OBS. Não é prova de fallback funcional.
+O módulo usa o preview nativo e **não implementa persistência de posição/tamanho do PiP de sistema**. Avatar Foundry/URL usa uma imagem estática incorporada na [opção oficial](https://docs.vdo.ninja/advanced-settings/video-parameters/and-avatar). Seu carregamento local no VDO real passou; falta conferir vídeo mutado/sem dispositivo entre peers e no OBS. Não é prova de fallback transmitido.
 
 ## Roteiro de prova real
 
@@ -105,10 +121,10 @@ O módulo lembra o tipo de preview; **não implementa persistência de posição
 4. Entre nos três clientes e aplique/reconecte. Selecione câmera e confirme permissão na UI nativa. Teste permissão negada e depois autorizada. Registre qual origem pediu permissão, mensagens/erros, política do documento pai e se microfone foi solicitado no modo Discord.
 5. Verifique os seis caminhos de vídeo: GM vê A/B; A vê GM/B; B vê GM/A. Desligue/ligue uma câmera e recarregue um cliente. Confirme mesmo slot e reconexão; registre atrasos/falhas.
 6. Clique com botão direito na própria câmera e nas outras, como jogador e como GM guest. Registre opções, funcionalidade e clipping na borda do iframe. Não inferir que o menu funciona só porque o código do pai não bloqueia `contextmenu`.
-7. Selecione o GM como Director na configuração e reconecte apenas seu iframe. Ative câmera via UI Director e teste novamente visão mútua e menus. Registre se o primeiro Director reivindica a Room, opções disponíveis, câmera GM no slot original e OBS. Volte a guest para comparar. Não abra um segundo iframe para o GM.
+7. Selecione o GM como Director na configuração e reconecte apenas seu iframe. Confira Scene Preview inicial e o aviso; alterne 🪟 Toggle Director Vision para o painel e de volta. Ative câmera via UI Director e teste novamente visão mútua e menus. Registre se o primeiro Director reivindica a Room, opções disponíveis, câmera GM no slot original e OBS. Volte a guest para comparar. Não abra um segundo iframe para o GM.
 8. Mude áudio para VDO e reconecte todos; teste microfone, mute, volume e opções de participantes. Confirme prompt de microfone na origem VDO e fluxo nativo. Ao terminar, retorne ao modo de áudio desejado pela mesa.
-9. Em cada cliente, confira flutuante na primeira abertura e altere esquerda/direita/topo/embaixo/flutuante, slider e resize nativo. Redimensione o navegador, feche/reabra e recarregue. Verifique persistência individual, zoom sem reconectar e acesso a controles/sidebar/hotbar com cada borda. Confira também com AV nativo/temas/módulos de UI usados pela mesa. Em Opções, teste câmera padrão/nome, avatar Foundry/URL/sem placeholder e Automático/PC/Móvel; aplique, mute/desmute e recarregue para conferir persistência e imagem entre peers.
-10. No GM, teste preview nativo, `minipreview` e `pipme`, aplicando/reconectando quando mudar opção. Sem `autostart`. Com foco no iframe, teste Ctrl+Alt+P (Cmd+Alt+P no Mac), controles nativos e gesto manual. Mova PiP próximo à câmera física; confirme demais jogadores no dock e comportamento ao fechar/reabrir/PiP. Registre suporte e persistência oferecidos pelo navegador.
+9. Em cada cliente, confira flutuante e opções recolhidas na abertura. Use a engrenagem para alterar esquerda/direita/topo/embaixo/flutuante, slider e zoom. Confira tooltips e desacoplar sem reconectar. Redimensione, feche/reabra e recarregue; confira persistência, preenchimento do iframe e acesso à UI com cada borda, inclusive com AV nativo/temas/módulos da mesa. Teste avatar Foundry/URL/sem placeholder; confira a miniatura preparada, aplique, mute/desmute e recarregue para conferir imagem entre peers. Desmarque abertura ao entrar e confirme que a abertura manual continua disponível.
+10. No GM, teste preview, mini preview e PiP pelos controles nativos do VDO. Sem `autostart`. Com foco no iframe, teste Ctrl+Alt+P (Cmd+Alt+P no Mac), controles e gesto manual. Mova PiP próximo à câmera física; confirme demais jogadores no dock e comportamento ao fechar/reabrir/PiP. Registre suporte e persistência oferecidos pelo navegador.
 11. No painel GM, copie os três solo links para três Browser Sources OBS. Registre versão OBS/CEF, tamanho da source, codec/resolução/FPS efetivos, imagem individual, áudio escolhido, ligar/desligar câmera e reload do publisher. Confirme retorno usando a mesma URL. Não gravar ou publicar a sessão sem autorização dos participantes.
 12. Preencha a ficha abaixo **para cada geração**. Se algo fundamental falhar, inclua passos, versão e mensagens e mantenha o gate pendente; investigue o recurso oficial antes de alternativas.
 
@@ -145,5 +161,5 @@ Responsável pela validação:
 - O clone local cadastrado no app estava sem commits/remoto e com arquivos não rastreados. Ele foi preservado. A implementação foi feita em um clone do repositório existente, na branch `codex/official-room-prototype`, partindo de `57a7f1c`.
 - Os testes de navegador precisaram usar Edge instalado porque o Chromium headless padrão do Playwright não estava instalado. Nenhum browser foi instalado para contornar isso.
 - Ajustados o caminho do servidor temporário de fixture no Windows e o fechamento do painel de configuração antes de clicar no dock. Eram falhas do ambiente/roteiro de teste, não do VDO.
-- O painel é mínimo. Avatar, presets, persistência externa de Room e exportação em lote não foram construídos. Não houve alteração de infraestrutura nem decisão definitiva sobre áudio.
+- O painel é mínimo. Avatar e ajustes de dock foram adicionados por solicitação explícita nas revisões .2/.3; presets, persistência externa de Room e exportação em lote não foram construídos. Não houve alteração de infraestrutura nem decisão definitiva sobre áudio.
 - A prova real está limitada pela ausência de um World de testes pronto, acesso de sessão, três participantes/câmeras e OBS validado. Pacote e roteiro estão preparados para essa etapa; gate permanece pendente.

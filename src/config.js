@@ -1,13 +1,11 @@
 export const MODULE_ID = "rpgup-vdo-ninja";
 export const VDO_BASE = "https://vdo.ninja/";
 export const DOCKS = { left: "Esquerda", right: "Direita", top: "Topo", bottom: "Embaixo", floating: "Flutuante" };
-export const PREVIEWS = { native: "Preview nativo", mini: "Mini preview", pip: "PiP da própria câmera" };
-export const INTERFACES = { auto: "Automático", desktop: "PC", mobile: "Móvel" };
 export const AVATARS = { foundry: "Avatar do usuário Foundry", custom: "Imagem por URL", none: "Sem placeholder" };
 export const DEFAULT_WORLD = { roomId: "", extraQuery: "", audio: "discord", directorUserId: "", slots: {} };
 export const DEFAULT_PREFS = {
-  dock: "floating", preview: "native", autoOpen: true,
-  zoom: 1, interface: "auto", camera: "", avatar: "foundry", avatarURL: "",
+  dock: "floating", autoOpen: true,
+  zoom: 1, avatar: "foundry", avatarURL: "",
   sideWidth: 440, barHeight: 360,
   floating: { width: 720, height: 600, left: 120, top: 80 }
 };
@@ -75,11 +73,8 @@ export function normalizePrefs(input = {}) {
   return {
     schemaVersion: 2,
     dock: Object.hasOwn(DOCKS, input?.dock) ? input.dock : DEFAULT_PREFS.dock,
-    preview: Object.hasOwn(PREVIEWS, input?.preview) ? input.preview : "native",
     autoOpen: typeof input?.autoOpen === "boolean" ? input.autoOpen : true,
     zoom: bounded(input?.zoom, 1, 0.5, 1.5),
-    interface: Object.hasOwn(INTERFACES, input?.interface) ? input.interface : "auto",
-    camera: typeof input?.camera === "string" ? input.camera.trim().slice(0, 256) : "",
     avatar: Object.hasOwn(AVATARS, input?.avatar) ? input.avatar : "foundry",
     avatarURL: typeof input?.avatarURL === "string" ? input.avatarURL.trim().slice(0, 2048) : "",
     sideWidth: bounded(input?.sideWidth, 440, 320, 2400),

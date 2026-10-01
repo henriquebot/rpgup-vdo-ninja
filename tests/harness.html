@@ -8,7 +8,9 @@ body { position: fixed; display: flex; margin: 0; width: 100vw; height: 100vh; f
 #ui-left { position: absolute; left: 0; }
 #ui-right { position: absolute; right: 0; }
 .application { position: absolute; background: #454b58; display: flex; flex-direction: column; }
-.window-header { height: 30px; flex-shrink: 0; background: #252830; }
+.window-header { height: 30px; flex-shrink: 0; background: #252830; display: flex; justify-content: end; }
+.window-header [data-action="toggleModuleSettings"]::before { content: "⚙"; }
+.window-header [data-action="undock"]::before { content: "↗"; }
 .window-content { flex: 1; min-height: 0; }
 input, select, button { font: inherit; }
 </style>
@@ -67,10 +69,15 @@ class ApplicationV2 {
   async render(options = {}) {
     this._canRender(options);
     if (!this.element) {
-      this.element = document.createElement("div");
+      this.element = await this._renderFrame(options);
       this.element.id = this.options.id;
       this.element.className = `application ${this.options.classes.join(" ")}`;
-      this.element.innerHTML = '<header class="window-header"></header><div class="window-content"></div>';
+      this.element.addEventListener("click", event => {
+        const target = event.target.closest("button[data-action]");
+        if (!target) return;
+        if (target.dataset.action === "close") this.close();
+        else this.options.actions?.[target.dataset.action]?.call(this, event, target);
+      });
       document.body.append(this.element);
     }
     const result = await this._renderHTML({}, options);
@@ -78,6 +85,11 @@ class ApplicationV2 {
     this.rendered = true;
     await this._onRender({}, options);
     return this;
+  }
+  async _renderFrame() {
+    const frame = document.createElement("div");
+    frame.innerHTML = '<header class="window-header"><button type="button" data-action="close" aria-label="Fechar">×</button></header><div class="window-content"></div>';
+    return frame;
   }
   setPosition(position) {
     Object.assign(this.position, position);
