@@ -1,0 +1,90 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>RPGUP — fixture de teste, sem Foundry real</title>
+<link rel="stylesheet" href="/styles/module.css">
+<style>
+body { margin: 0; height: 100vh; font-family: sans-serif; background: #30343d; color: #eee; }
+.application { position: absolute; background: #454b58; display: flex; flex-direction: column; }
+.window-header { height: 30px; flex-shrink: 0; background: #252830; }
+.window-content { flex: 1; min-height: 0; }
+input, select, button { font: inherit; }
+</style>
+<script type="module">
+// A small documented-contract fixture. It does NOT emulate a complete Foundry runtime.
+const handlers = new Map();
+globalThis.Hooks = {
+  on(name, fn) { const list = handlers.get(name) ?? []; list.push(fn); handlers.set(name, list); },
+  once(name, fn) { this.on(name, fn); },
+  callAll(name, ...args) { for (const fn of handlers.get(name) ?? []) fn(...args); }
+};
+const prefs = {};
+const users = [
+  { id: "gm1", name: "GM Teste", isGM: true },
+  { id: "p1", name: "Jogador A", isGM: false },
+  { id: "p2", name: "Jogador B", isGM: false }
+].map(user => ({ ...user,
+  getFlag() { return prefs[user.id] ?? JSON.parse(localStorage.getItem(`prefs-${user.id}`) ?? "null"); },
+  async setFlag(scope, key, value) { prefs[user.id] = structuredClone(value); localStorage.setItem(`prefs-${user.id}`, JSON.stringify(value)); }
+}));
+let config = {
+  roomId: "FixtureRoom123", extraQuery: "password=Fixture123", audio: "discord", directorUserId: "",
+  slots: { gm1: "slot_gm", p1: "slot_a", p2: "slot_b" }
+};
+const registered = new Map();
+const menus = new Map();
+globalThis.notices = [];
+globalThis.ui = { notifications: Object.fromEntries(["error", "warn", "info"].map(key => [key, value => notices.push({ key, value })])) };
+globalThis.game = {
+  user: users.find(user => user.id === new URL(location.href).searchParams.get("user")) ?? users[0], users,
+  modules: new Map([["rpgup-vdo-ninja", {}]]),
+  settings: {
+    register(scope, key, value) { registered.set(key, value); },
+    registerMenu(scope, key, value) { menus.set(key, value); },
+    get() { return structuredClone(config); },
+    async set(scope, key, value) { config = structuredClone(value); registered.get(key)?.onChange?.(value); return value; }
+  }
+};
+const applications = [];
+class ApplicationV2 {
+  constructor(options = {}) { this.options = { ...this.constructor.DEFAULT_OPTIONS, ...options }; this.position = { ...this.options.position }; applications.push(this); }
+  async render(options = {}) {
+    this._canRender(options);
+    if (!this.element) {
+      this.element = document.createElement("div");
+      this.element.id = this.options.id;
+      this.element.className = `application ${this.options.classes.join(" ")}`;
+      this.element.innerHTML = '<header class="window-header"></header><div class="window-content"></div>';
+      document.body.append(this.element);
+    }
+    const result = await this._renderHTML({}, options);
+    this._replaceHTML(result, this.element.querySelector(".window-content"), options);
+    this.rendered = true;
+    await this._onRender({}, options);
+    return this;
+  }
+  setPosition(position) {
+    Object.assign(this.position, position);
+    this._prePosition(this.position);
+    for (const key of ["width", "height", "left", "top"]) this.element.style[key] = `${this.position[key]}px`;
+    this._onPosition(this.position);
+  }
+  async close() { await this._preClose({}); this.element.remove(); this.element = null; this.rendered = false; this._onClose({}); }
+  _canRender() {}
+  async _onRender() {}
+  _prePosition() {}
+  _onPosition() {}
+  async _preClose() {}
+  _onClose() {}
+}
+globalThis.foundry = { applications: { api: { ApplicationV2 } } };
+await import("/src/main.js");
+Hooks.callAll("init");
+Hooks.callAll("ready");
+globalThis.fixture = {
+  config: () => structuredClone(config),
+  menu: key => new (menus.get(key).type)().render({ force: true }),
+  async closeConfig() { for (const app of applications) if (app.rendered && app.options.id === "rpgup-vdo-world-config") await app.close(); },
+  async dock() { return (await import("/src/room-dock.js")).RoomDock.instance; }
+};
+globalThis.fixtureReady = true;
+</script>
