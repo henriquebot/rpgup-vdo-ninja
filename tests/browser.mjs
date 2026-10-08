@@ -280,6 +280,7 @@ try {
   await page.evaluate(() => Array.from(document.querySelectorAll("button")).find(button => button.textContent === "Aplicar / reconectar").click());
   await page.waitForFunction(() => fixture.config().slots.p1 === "player_custom");
   await page.evaluate(() => fixture.closeConfig());
+  await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   assert.equal((await page.evaluate(() => fixture.config().slots)).p2, generated.p2, "Reconnect nunca recria slots");
   await openSettings(guest);
