@@ -17,8 +17,10 @@ export async function saveWorld(config) {
 
 export function userPrefs() {
   const prefs = game.user.getFlag(MODULE_ID, "preferences");
-  // The first prototype defaulted to a screen-covering right dock. Switch once.
-  return normalizePrefs(prefs && prefs.schemaVersion !== 2 ? { ...prefs, dock: "floating" } : prefs);
+  // Versions up to 1.0.1 defaulted to floating. Migrate that default once to left;
+  // keep explicit side/top/bottom choices, and preserve all choices saved under v3.
+  const migrateFloating = prefs && prefs.schemaVersion !== 3 && (!prefs.dock || prefs.dock === "floating");
+  return normalizePrefs(migrateFloating ? { ...prefs, dock: "left" } : prefs);
 }
 
 export function savePrefs(prefs) {
