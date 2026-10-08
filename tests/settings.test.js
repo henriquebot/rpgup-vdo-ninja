@@ -21,13 +21,15 @@ test("rascunhos não alteram o cache do mundo e saves precisam de confirmação 
   await assert.rejects(saveWorld({ slots: {} }), /não confirmou/);
 });
 
-test("preferências antigas migram uma vez para flutuante e preservam as demais escolhas", () => {
-  globalThis.game = { user: { getFlag: () => ({ dock: "right", preview: "mini", autoOpen: false }) } };
-  assert.equal(userPrefs().dock, "floating");
+test("preferências antigas passam a usar esquerda sem sobrescrever escolha explícita posterior", () => {
+  globalThis.game = { user: { getFlag: () => ({ dock: "floating", preview: "mini", autoOpen: false }) } };
+  assert.equal(userPrefs().dock, "left");
   assert.equal(userPrefs().preview, undefined);
   assert.equal(userPrefs().autoOpen, false);
-  game.user.getFlag = () => ({ schemaVersion: 2, dock: "left", camera: "OBS", zoom: 0.8 });
-  assert.equal(userPrefs().dock, "left");
+  game.user.getFlag = () => ({ schemaVersion: 2, dock: "right", camera: "OBS", zoom: 0.8 });
+  assert.equal(userPrefs().dock, "right");
   assert.equal(userPrefs().zoom, 0.8);
   assert.equal(userPrefs().camera, undefined);
+  game.user.getFlag = () => ({ schemaVersion: 3, dock: "floating" });
+  assert.equal(userPrefs().dock, "floating");
 });
