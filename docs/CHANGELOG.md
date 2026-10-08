@@ -1,5 +1,15 @@
 # Histórico de versões
 
+## 1.0.2 — 08/10/2026
+
+- Dock à esquerda por padrão. Preferências antigas no modo flutuante migram uma única vez para a esquerda; escolhas de borda existentes são preservadas, assim como novas escolhas salvas na versão 3 das preferências.
+- Menu nativo de posição ganha fundo escuro e contraste explícito. Mensagem de Room não configurada fica no fluxo normal, sem sobrepor as opções.
+- Coluna **Entrar pelo navegador** no painel World / OBS: link de publicação individual com mesma Room, nome, Stream ID estável, parâmetros de áudio e avatar incorporado (quando acessível). Botão para copiar por jogador; usa somente configuração salva. Não confundir com solo link OBS, que apenas visualiza.
+- GitHub Actions valida testes e constrói release com `module.json` e `rpgup-vdo-ninja.zip` nos Assets. O manifest na main acompanha a versão; o ZIP vem do Release versionado.
+
+**Atenção:** links externos podem conter a senha da Room e devem ser enviados somente ao jogador destinatário. Antes de entrar externamente, feche a dock embutida para não publicar duas vezes no mesmo slot. Se a imagem não puder ser lida pelo GM, o link informa fallback para o avatar padrão VDO.
+
+
 ## 1.0.1 — 01/10/2026
 
 - PR #5 incorporado à main: opção GM **Compacto / preencher espaço** usa `cover` nativo somente na Room; `structure` e `cover` sem valor e `cover=2` são permitidos explicitamente nos avançados.
