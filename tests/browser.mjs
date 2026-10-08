@@ -244,7 +244,7 @@ try {
   guest.on("pageerror", error => guestErrors.push(error.message));
   await guest.goto(base + "/tests/harness.html?user=p1");
   await guest.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
-  assert.equal(await guest.getByRole("button", { name: "World / OBS", exact: true }).count(), 0);
+  assert.equal(await guest.getByRole("button", { name: "Configurar mesa", exact: true }).count(), 0);
   assert.equal(new URL(await guest.locator("iframe").getAttribute("src")).searchParams.get("push"), "slot_a");
   assert.ok(new URL(await guest.locator("iframe").getAttribute("src")).searchParams.get("avatar").startsWith("data:image/"));
   assert.equal(await guest.locator('[name="Self-preview"]').count(), 0);
@@ -263,6 +263,7 @@ try {
   assert.equal(await guest.locator("iframe").count(), 0);
   assert.match(await guest.locator(".rpgup-status").innerText(), /GM ainda não associou/);
   await page.evaluate(() => fixture.menu("worldConfig"));
+  await worldTab(page, "participants");
   await page.getByRole("button", { name: "Gerar e salvar slots faltantes", exact: true }).click();
   await page.waitForFunction(() => fixture.config().slots.p1 && fixture.config().slots.p2);
   const generated = await page.evaluate(() => fixture.config().slots);
@@ -320,16 +321,22 @@ try {
   await page.evaluate(() => fixture.closeConfig());
   console.log("Usuário criado com painel aberto: lista atualizada, rascunho preservado e slot salvo: OK.");
 
+  await dockTab(page, "avatar");
   await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).fill(base + "/missing-avatar.svg");
+  await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(() => notices.some(notice => notice.value.includes("HTTP 404")));
   assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar"), "default");
   assert.match(await page.locator(".rpgup-avatar-status").innerText(), /não aplicado/);
+  await dockTab(page, "avatar");
   await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).fill("file:///invalid-avatar.svg");
+  await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(() => notices.some(notice => notice.value.includes("use uma imagem por URL HTTP/HTTPS")));
   assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar"), "default");
+  await dockTab(page, "avatar");
   await page.getByRole("combobox", { name: "Placeholder", exact: true }).selectOption("foundry");
+  await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(() => new URL(document.querySelector("iframe").src).searchParams.get("avatar")?.startsWith("data:image/"));
   const foundryImage = new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar");
