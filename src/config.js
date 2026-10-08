@@ -1,4 +1,15 @@
 export const MODULE_ID = "rpgup-vdo-ninja";
+
+// The first Room suggestion is based on the Foundry world title. It never
+// overwrites an already saved Room or a GM's manual edits.
+export function suggestRoomId(world = {}) {
+  const title = String(world?.title || world?.name || world?.id || "");
+  const normalized = title.normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9]/g, "")
+    .slice(0, 49);
+  return normalized || "MesaVDO";
+}
 export const VDO_BASE = "https://vdo.ninja/";
 export const DOCKS = { left: "Esquerda", right: "Direita", top: "Topo", bottom: "Embaixo", floating: "Flutuante" };
 export const AVATARS = { foundry: "Avatar Foundry / da mesa", custom: "Imagem por URL", none: "Sem placeholder" };
