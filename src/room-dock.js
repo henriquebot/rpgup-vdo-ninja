@@ -4,6 +4,7 @@ import { prepareAvatar } from "./avatar.js";
 import { worldConfig, userPrefs, savePrefs } from "./settings.js";
 import { element, select, field, tooltip, panel, button, report } from "./dom.js";
 import { WorldConfig } from "./world-config.js";
+import { createIconTabs } from "./tabs.js";
 
 const ApplicationV2 = foundry.applications.api.ApplicationV2;
 
@@ -36,7 +37,7 @@ export class RoomDock extends ApplicationV2 {
     this._settingsButton = tooltip(element("button", undefined, {
       type: "button", class: "header-control icon fa-solid fa-gear", "data-action": "toggleModuleSettings",
       "aria-label": "Configurações da dock", "aria-expanded": "false", "aria-controls": "rpgup-vdo-settings"
-    }), "Mostrar ou ocultar posição, zoom, avatar e opções desta janela. Câmera e PiP ficam no próprio VDO.Ninja.");
+    }), "Mostrar as guias de configuração, janela, imagem e ajuda. Câmera e PiP ficam no VDO.Ninja.");
     this._undockButton = tooltip(element("button", undefined, {
       type: "button", class: "header-control icon fa-solid fa-up-right-from-square", "data-action": "undock",
       "aria-label": "Desacoplar janela"
@@ -92,13 +93,14 @@ export class RoomDock extends ApplicationV2 {
     tooltip(reconnect, "Salvar suas preferências e reabrir a sala. Isso interrompe e reinicia sua câmera. No GM, salva também o rascunho aberto de World / OBS.");
     toolbar.append(field("Posição da janela", dock, "Flutuante pode ser movida e redimensionada. As bordas reservam espaço da UI do Foundry. Mudar posição não reconecta."), field("Zoom da sala", zoom));
     const actions = element("div", undefined, { class: "rpgup-actions" });
-    actions.append(reconnect);
+    let configButton = null;
     if (game.user.isGM) {
-      const config = button("World / OBS", "fa-users-gear");
-      config.addEventListener("click", () => this.onConfigure?.(), { signal: this._listeners.signal });
-      tooltip(config, "Configurar a Room compartilhada, os IDs dos usuários e copiar links individuais para OBS. Somente o GM altera estes dados.");
-      actions.append(config);
+      configButton = button("Configurar mesa", "fa-users-gear");
+      configButton.addEventListener("click", () => this.onConfigure?.(), { signal: this._listeners.signal });
+      tooltip(configButton, "Configurar a sala da mesa, participantes, links OBS e entradas externas. Somente o GM pode editar.");
+      actions.append(configButton);
     }
+    actions.append(reconnect);
     const settings = element("div", undefined, { class: "rpgup-toolbar rpgup-preferences" });
     const avatar = select(AVATARS, this.prefs.avatar, "Placeholder");
     const avatarURL = element("input", undefined, { type: "url", maxlength: "2048", placeholder: "https://…/imagem.webp", "aria-label": "URL do placeholder" });
@@ -116,12 +118,41 @@ export class RoomDock extends ApplicationV2 {
     this._directorHelp = element("p", "Director inicia em Scene Preview. Use 🪟 Toggle Director Vision no VDO para alternar entre a cena e o painel de direção.", { hidden: "", class: "rpgup-director-help" });
     const avatarSummary = element("div", undefined, { class: "rpgup-avatar-summary" });
     avatarSummary.append(this._avatarPreview, this._avatarStatus);
-    this._settings.append(
-      panel("Sua janela", "Posição, tamanho e zoom são salvos automaticamente e mantêm a chamada conectada.", toolbar),
-      panel("Imagem com a câmera desligada", "Use a imagem do usuário Foundry, a definida pelo GM para a mesa ou sua própria URL.", settings, avatarSummary),
-      panel("Controles da chamada", "Câmera e microfone: engrenagem do VDO. Preview e PiP: menu do próprio vídeo. Ctrl+Alt+P alterna seu PiP (Cmd+Alt+P no Mac), com foco no VDO.", this._directorHelp),
-      actions
+    this._status = element("p", "Ative sua câmera usando os controles do VDO.Ninja.", { class: "rpgup-status", role: "status" });
+    const connectPane = element("div", undefined, { class: "rpgup-tab-section" });
+    connectPane.append(
+      element("p", game.user.isGM
+        ? "Primeiro configure a mesa e os jogadores. Depois clique em Aplicar / reconectar."
+        : "Entre na sala configurada pelo mestre. Após mudanças, use Aplicar / reconectar.", { class: "rpgup-help" }),
+      actions, this._status
     );
+    const windowPane = element("div", undefined, { class: "rpgup-tab-section" });
+    windowPane.append(toolbar);
+    const avatarPane = element("div", undefined, { class: "rpgup-tab-section" });
+    avatarPane.append(settings, avatarSummary);
+    const helpPane = element("div", undefined, { class: "rpgup-tab-section" });
+    helpPane.append(
+      element("p", "Câmera e microfone: engrenagem do VDO. Preview e PiP: menu do próprio vídeo. Ctrl+Alt+P alterna PiP (Cmd+Alt+P no Mac), com foco no VDO.", { class: "rpgup-help" }),
+      this._directorHelp
+    );
+    const tourSteps = [
+      ...(configButton ? [{ tab: "connect", target: () => configButton, text: "Mestre: clique em Configurar mesa para definir a sala e os IDs dos jogadores." }] : []),
+      { tab: "connect", target: () => reconnect, text: "Aplicar / reconectar salva suas preferências e reinicia a sala e a câmera." },
+      { tab: "window", target: () => dock, text: "A dock começa à esquerda. Escolha outra posição se preferir: ela será lembrada." },
+      { tab: "window", target: () => zoom, text: "O zoom altera o tamanho visual sem reconectar." },
+      { tab: "avatar", target: () => avatar, text: "Escolha a imagem que aparece enquanto a câmera estiver desligada." },
+      { tab: "help", target: () => helpPane, text: "Os controles de câmera, microfone e PiP ficam no VDO.Ninja." }
+    ];
+    this._settings.append(createIconTabs({
+      id: "rpgup-dock", label: "Guias da chamada",
+      initial: "connect", tourSteps,
+      tabs: [
+        { key: "connect", title: game.user.isGM ? "Configuração da mesa" : "Conexão da sala", icon: "fa-users-gear", children: [connectPane] },
+        { key: "window", title: "Posição e tamanho da janela", icon: "fa-window-maximize", children: [windowPane] },
+        { key: "avatar", title: "Imagem com câmera desligada", icon: "fa-image", children: [avatarPane] },
+        { key: "help", title: "Ajuda e controles da chamada", icon: "fa-circle-question", children: [helpPane] }
+      ]
+    }).root);
     const remember = (control, key) => control.addEventListener("change", () => {
       this.prefs[key] = control.value.trim();
       avatarURL.disabled = this.prefs.avatar !== "custom";
@@ -138,10 +169,8 @@ export class RoomDock extends ApplicationV2 {
     smaller.addEventListener("click", () => changeZoom(this.prefs.zoom - 0.1), { signal: this._listeners.signal });
     larger.addEventListener("click", () => changeZoom(this.prefs.zoom + 0.1), { signal: this._listeners.signal });
     this._zoomReset.addEventListener("click", () => changeZoom(1), { signal: this._listeners.signal });
-    this._status = element("p", "Ative sua câmera usando os controles do VDO.Ninja.", { class: "rpgup-status", role: "status" });
     this._frameHost = element("div", undefined, { class: "rpgup-frame-host" });
     this._alert = element("p", "", { class: "rpgup-connection-alert", role: "status", hidden: "" });
-    this._settings.append(this._status);
     // Connection errors stay in normal layout, never cover settings or dropdowns.
     this._root.append(this._settings, this._alert, this._frameHost);
     dock.addEventListener("change", () => {
@@ -234,7 +263,7 @@ export class RoomDock extends ApplicationV2 {
       this._iframe.allow = "camera; autoplay; fullscreen; display-capture; picture-in-picture" + (world.audio === "vdo" ? "; microphone" : "");
       this._pending = false;
       this._settingsButton.classList.remove("rpgup-attention");
-      tooltip(this._settingsButton, "Mostrar ou ocultar posição, zoom, avatar e opções desta janela. Câmera e PiP ficam no próprio VDO.Ninja.");
+      tooltip(this._settingsButton, "Mostrar as guias de configuração, janela, imagem e ajuda. Câmera e PiP ficam no VDO.Ninja.");
       this._alert.hidden = true;
       this._activeURL = url;
       this._iframe.src = url;

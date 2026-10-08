@@ -33,7 +33,7 @@ export function registerSettings(RoomDock, WorldConfig, onChange) {
     type: Object, default: structuredClone(DEFAULT_WORLD), onChange
   });
   game.settings.registerMenu(MODULE_ID, "worldConfig", {
-    name: "RPGUP VDO.Ninja — World e fontes OBS", label: "Configurar Room / slots / OBS",
+    name: "RPGUP VDO.Ninja — Configurar mesa", label: "Configurar mesa",
     hint: "Room, participantes, avatares da mesa, qualidade e links OBS. Somente o GM altera a configuração compartilhada.",
     icon: "fas fa-video", type: WorldConfig, restricted: true
   });

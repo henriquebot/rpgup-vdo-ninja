@@ -29,6 +29,8 @@ let browser;
 let navigations = 0;
 const screenshotDirectory = path.join(root, "test-results");
 await mkdir(screenshotDirectory, { recursive: true });
+async function dockTab(page, key) { await page.locator(`#rpgup-dock-tab-${key}`).click(); }
+async function worldTab(page, key) { await page.locator(`#rpgup-world-tab-${key}`).click(); }
 async function openSettings(page) {
   const button = page.getByRole("button", { name: "Configurações da dock", exact: true });
   if (await button.getAttribute("aria-expanded") === "false") await button.click();
@@ -67,6 +69,14 @@ try {
   await openSettings(page);
   await page.locator(".rpgup-status").filter({ hasText: "Documento do iframe" }).waitFor();
   assert.equal(await page.locator("iframe").count(), 1);
+  assert.equal(await page.locator('#rpgup-dock-tab-connect').getAttribute("aria-selected"), "true");
+  assert.equal(await page.locator('#rpgup-dock-tab-window').innerText(), "", "Guias usam apenas ícones");
+  assert.equal(await page.locator('[role="tab"][aria-selected="true"]').count(), 1);
+  await page.getByRole("button", { name: "Iniciar tour guiado" }).first().click();
+  assert.match(await page.locator("#rpgup-vdo-settings .rpgup-tour").innerText(), /Configurar mesa/);
+  await page.locator("#rpgup-vdo-settings .rpgup-tour-next").click();
+  await page.locator("#rpgup-vdo-settings .rpgup-tour-close").click();
+  assert.equal(await page.locator("#rpgup-vdo-settings .rpgup-tour").isVisible(), false);
   await page.screenshot({ path: path.join(screenshotDirectory, "dock-settings-desktop.png") });
   const initial = navigations;
   const initialURL = await page.locator("iframe").getAttribute("src");
@@ -74,8 +84,11 @@ try {
   assert.ok(new URL(initialURL).searchParams.get("avatar").startsWith("data:image/webp;base64,"), "Avatar sem CORS vira uma imagem autossuficiente");
   assert.ok(initialURL.length < 8000);
   assert.equal(await page.locator('[name="Câmera padrão"], [name="Interface VDO"], [name="Self-preview"]').count(), 0);
+  await dockTab(page, "window");
   assert.match(await page.getByRole("checkbox").getAttribute("title"), /não liga sua câmera/);
+  await dockTab(page, "avatar");
   assert.match(await page.getByRole("combobox", { name: "Placeholder", exact: true }).getAttribute("data-tooltip"), /cada sessão/);
+  await dockTab(page, "window");
   assert.equal((await page.locator("iframe").getAttribute("allow")).includes("microphone"), false);
   assert.equal(await page.locator("iframe").getAttribute("sandbox"), null);
   for (const dock of ["left", "right", "top", "bottom", "floating"]) {
@@ -102,15 +115,22 @@ try {
   await page.getByRole("button", { name: "Diminuir zoom", exact: true }).click();
   assert.equal(await page.locator("iframe").evaluate(node => node.style.transform), "scale(0.8)");
   assert.equal(navigations, initial, "Zoom não deve recarregar a sala");
+  await dockTab(page, "avatar");
   await page.getByRole("combobox", { name: "Placeholder", exact: true }).selectOption("custom");
   await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).fill("https://images.example/avatar.webp");
   assert.equal(await page.locator("iframe").getAttribute("src"), initialURL);
+  await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(previous => document.querySelector("iframe").src !== previous, initialURL);
   await page.locator(".rpgup-status").filter({ hasText: "Documento do iframe" }).waitFor();
   assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.has("view"), false);
-  await page.getByRole("button", { name: "World / OBS", exact: true }).click();
+  await page.getByRole("button", { name: "Configurar mesa", exact: true }).click();
   await page.locator(".rpgup-config-form").waitFor();
+  assert.equal(await page.locator("#rpgup-world-tab-general").getAttribute("aria-selected"), "true");
+  await page.locator("#rpgup-vdo-world-config [aria-label='Iniciar tour guiado']").click();
+  assert.match(await page.locator("#rpgup-vdo-world-config .rpgup-tour").innerText(), /sala/i);
+  await page.locator("#rpgup-vdo-world-config .rpgup-tour-close").click();
+  await worldTab(page, "participants");
   await page.getByRole("textbox", { name: "Stream ID de Jogador A", exact: true }).fill("draft_reload");
   const beforeDraftReload = await page.locator("iframe").getAttribute("src");
   await page.evaluate(() => document.querySelector('[data-action="reloadRoom"]').click());
@@ -119,7 +139,9 @@ try {
   assert.equal(await page.getByRole("textbox", { name: "Stream ID de Jogador A", exact: true }).inputValue(), "draft_reload");
   assert.equal(await page.locator("iframe").getAttribute("src"), beforeDraftReload);
   await page.getByRole("textbox", { name: "Stream ID de Jogador A", exact: true }).fill("slot_a");
+  await worldTab(page, "general");
   assert.match(await page.getByRole("combobox", { name: "directorUserId", exact: true }).getAttribute("data-tooltip"), /Scene Preview/);
+  await worldTab(page, "participants");
   assert.equal(await page.getByRole("textbox", { name: "Solo link OBS", exact: false }).count(), 3);
   await page.waitForFunction(() => document.querySelector('input[aria-label="Link de entrada no navegador de Jogador A"]')?.value.startsWith("https://vdo.ninja/"));
   const browserJoin = new URL(await page.getByRole("textbox", { name: "Link de entrada no navegador de Jogador A" }).inputValue());
@@ -130,17 +152,21 @@ try {
   assert.equal(browserJoin.searchParams.has("view"), false, "Link de jogador publica, não é viewer OBS");
   assert.equal(browserJoin.searchParams.get("avatar"), "default", "Jogador sem avatar usa placeholder padrão");
   assert.equal(await page.getByRole("button", { name: "Copiar link de entrada de Jogador A" }).isEnabled(), true);
+  await worldTab(page, "general");
   await page.getByRole("combobox", { name: "audio", exact: true }).selectOption("vdo");
   await page.getByRole("combobox", { name: "directorUserId", exact: true }).selectOption("gm1");
   await page.getByRole("combobox", { name: "quality", exact: true }).selectOption("economy");
   assert.equal(await page.getByRole("combobox", { name: "roomLayout", exact: true }).inputValue(), "native");
   await page.getByRole("combobox", { name: "roomLayout", exact: true }).selectOption("compact");
+  await worldTab(page, "participants");
   await page.getByRole("textbox", { name: "Avatar da mesa de Jogador A", exact: true }).fill("/tests/users/avatar-gm.webp");
   await page.getByRole("button", { name: "Salvar configuração", exact: true }).click();
   await page.waitForFunction(() => fixture.config().audio === "vdo");
   assert.equal((await page.evaluate(() => fixture.config())).quality, "economy");
   assert.equal((await page.evaluate(() => fixture.config())).roomLayout, "compact");
+  await worldTab(page, "general");
   assert.equal(await page.getByRole("combobox", { name: "roomLayout", exact: true }).inputValue(), "compact");
+  await worldTab(page, "participants");
   await page.waitForFunction(() => {
     const input = document.querySelector('input[aria-label="Link de entrada no navegador de Jogador A"]');
     return input?.value && new URL(input.value).searchParams.get("avatar")?.startsWith("data:image/");
@@ -164,7 +190,9 @@ try {
   await page.screenshot({ path: path.join(screenshotDirectory, "world-obs-desktop.png") });
   await page.evaluate(async () => { const { WorldConfig } = await import("/src/world-config.js"); WorldConfig.instance.setPosition({ width: 420 }); });
   assert.equal(await page.locator(".rpgup-config-form thead").isVisible(), false, "Tabela vira lista ao estreitar a janela mesmo em um monitor largo");
+  await worldTab(page, "general");
   assert.equal(await page.locator(".rpgup-grid").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 1);
+  await worldTab(page, "participants");
   await page.screenshot({ path: path.join(screenshotDirectory, "world-obs-narrow-window.png") });
   await page.evaluate(async () => { const { WorldConfig } = await import("/src/world-config.js"); WorldConfig.instance.setPosition({ width: 920 }); });
   const appliedURL = await page.locator("iframe").getAttribute("src");
@@ -185,6 +213,7 @@ try {
   assert.equal(director.searchParams.has("structure"), false);
   await page.evaluate(() => { globalThis.layoutFrame = document.querySelector("iframe"); });
   const layoutLoads = navigations;
+  await dockTab(page, "window");
   for (const dock of ["left", "right", "top", "bottom", "floating"]) {
     await page.getByRole("combobox", { name: "Posição do dock", exact: true }).selectOption(dock);
     assert.equal(await page.locator("iframe").getAttribute("src"), director.href);
@@ -200,9 +229,11 @@ try {
   await page.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
   assert.equal(await page.locator("#rpgup-vdo-settings").isVisible(), false);
   await openSettings(page);
+  await dockTab(page, "window");
   assert.equal(await page.getByRole("combobox", { name: "Posição do dock", exact: true }).inputValue(), "floating");
   assert.equal(await page.locator("iframe").evaluate(node => node.style.transform), "scale(0.8)");
   assert.equal((await page.evaluate(() => fixture.config())).roomLayout, "compact", "Layout da Room persiste após reload");
+  await dockTab(page, "avatar");
   assert.equal(await page.getByRole("combobox", { name: "Placeholder", exact: true }).inputValue(), "custom");
   assert.equal(await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).inputValue(), "https://images.example/avatar.webp");
   assert.ok(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar").startsWith("data:image/webp;base64,"));
@@ -214,7 +245,7 @@ try {
   guest.on("pageerror", error => guestErrors.push(error.message));
   await guest.goto(base + "/tests/harness.html?user=p1");
   await guest.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
-  assert.equal(await guest.getByRole("button", { name: "World / OBS", exact: true }).count(), 0);
+  assert.equal(await guest.getByRole("button", { name: "Configurar mesa", exact: true }).count(), 0);
   assert.equal(new URL(await guest.locator("iframe").getAttribute("src")).searchParams.get("push"), "slot_a");
   assert.ok(new URL(await guest.locator("iframe").getAttribute("src")).searchParams.get("avatar").startsWith("data:image/"));
   assert.equal(await guest.locator('[name="Self-preview"]').count(), 0);
@@ -233,6 +264,7 @@ try {
   assert.equal(await guest.locator("iframe").count(), 0);
   assert.match(await guest.locator(".rpgup-status").innerText(), /GM ainda não associou/);
   await page.evaluate(() => fixture.menu("worldConfig"));
+  await worldTab(page, "participants");
   await page.getByRole("button", { name: "Gerar e salvar slots faltantes", exact: true }).click();
   await page.waitForFunction(() => fixture.config().slots.p1 && fixture.config().slots.p2);
   const generated = await page.evaluate(() => fixture.config().slots);
@@ -248,6 +280,7 @@ try {
   await page.evaluate(() => Array.from(document.querySelectorAll("button")).find(button => button.textContent === "Aplicar / reconectar").click());
   await page.waitForFunction(() => fixture.config().slots.p1 === "player_custom");
   await page.evaluate(() => fixture.closeConfig());
+  await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   assert.equal((await page.evaluate(() => fixture.config().slots)).p2, generated.p2, "Reconnect nunca recria slots");
   await openSettings(guest);
@@ -290,16 +323,22 @@ try {
   await page.evaluate(() => fixture.closeConfig());
   console.log("Usuário criado com painel aberto: lista atualizada, rascunho preservado e slot salvo: OK.");
 
+  await dockTab(page, "avatar");
   await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).fill(base + "/missing-avatar.svg");
+  await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(() => notices.some(notice => notice.value.includes("HTTP 404")));
   assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar"), "default");
   assert.match(await page.locator(".rpgup-avatar-status").innerText(), /não aplicado/);
+  await dockTab(page, "avatar");
   await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).fill("file:///invalid-avatar.svg");
+  await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(() => notices.some(notice => notice.value.includes("use uma imagem por URL HTTP/HTTPS")));
   assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar"), "default");
+  await dockTab(page, "avatar");
   await page.getByRole("combobox", { name: "Placeholder", exact: true }).selectOption("foundry");
+  await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(() => new URL(document.querySelector("iframe").src).searchParams.get("avatar")?.startsWith("data:image/"));
   const foundryImage = new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar");
@@ -315,6 +354,7 @@ try {
   await autoPage.goto(base + "/tests/harness.html?user=p2");
   await autoPage.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
   await openSettings(autoPage);
+  await dockTab(autoPage, "window");
   await autoPage.getByRole("checkbox").uncheck();
   await autoPage.evaluate(async () => { await (await fixture.dock())._persist(); });
   await autoPage.reload();
@@ -369,6 +409,15 @@ try {
   await page.screenshot({ path: path.join(screenshotDirectory, "world-obs-mobile.png") });
   const panelOverflow = await page.locator(".rpgup-config-form").evaluate(form => form.scrollWidth > form.clientWidth + 2);
   assert.equal(panelOverflow, false, "Painel GM fica legível em viewport estreita");
+  await page.evaluate(() => fixture.closeConfig());
+  await page.evaluate(async () => {
+    game.world = { title: "Crônicas de Artraga" };
+    await fixture.setConfig({ ...fixture.config(), roomId: "" });
+    await fixture.menu("worldConfig");
+  });
+  await worldTab(page, "general");
+  assert.equal(await page.locator('input[name="roomId"]').inputValue(), "CronicasdeArtraga", "Room vazia sugere nome do mundo");
+  assert.equal((await page.evaluate(() => fixture.config())).roomId, "", "Sugestão não altera configuração sem salvar");
   await page.evaluate(() => fixture.closeConfig());
   assert.deepEqual(errors, []);
   assert.deepEqual(guestErrors, []);

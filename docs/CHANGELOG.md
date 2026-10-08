@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## 1.0.3 — 08/10/2026
+
+- **Guias com ícones e tooltips** na dock e no painel Configurar mesa, em vez de painéis longos empilhados. Primeira guia da dock mostra **Configurar mesa** (para GM) antes de Aplicar / reconectar.
+- **Tour guiado** acessível pelo ícone de bússola nas duas janelas, com navegação Anterior/Próximo/Concluir, explicações breves e destaque do controle explicado.
+- **Room ID sugerida** a partir do título do mundo Foundry quando ainda estiver vazia: remove espaços, acentos e caracteres não permitidos, respeitando os 49 caracteres. Não substitui uma sala salva.
+- Botão **World / OBS** renomeado para **Configurar mesa**; janela e menu do Foundry usam o mesmo nome.
+- As configurações, preferências, slots, exportação OBS e links de entrada externa continuam preservados. Nenhuma alteração no runtime do Foundry nem reinício de servidor.
+
+
 ## 1.0.2 — 08/10/2026
 
 - Dock à esquerda por padrão. Preferências antigas no modo flutuante migram uma única vez para a esquerda; escolhas de borda existentes são preservadas, assim como novas escolhas salvas na versão 3 das preferências.
