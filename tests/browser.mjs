@@ -213,6 +213,7 @@ try {
   assert.equal(director.searchParams.has("structure"), false);
   await page.evaluate(() => { globalThis.layoutFrame = document.querySelector("iframe"); });
   const layoutLoads = navigations;
+  await dockTab(page, "window");
   for (const dock of ["left", "right", "top", "bottom", "floating"]) {
     await page.getByRole("combobox", { name: "Posição do dock", exact: true }).selectOption(dock);
     assert.equal(await page.locator("iframe").getAttribute("src"), director.href);
