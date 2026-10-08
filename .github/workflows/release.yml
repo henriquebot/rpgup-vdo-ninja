@@ -21,6 +21,12 @@ jobs:
       - run: npm test
       - run: npm run check
       - run: npm run package
+      - name: Install browser test dependency
+        run: npm install --no-save playwright
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run ApplicationV2 browser fixture
+        run: npm run test:browser
 
   release:
     name: Publish GitHub Release assets
