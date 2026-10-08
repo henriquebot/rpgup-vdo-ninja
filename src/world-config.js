@@ -9,7 +9,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
   static DEFAULT_OPTIONS = {
     id: "rpgup-vdo-world-config", classes: ["rpgup-vdo", "rpgup-world-config"],
     window: { title: "RPGUP VDO.Ninja — World / OBS", icon: "fas fa-video", resizable: true },
-    position: { width: 920, height: 740 }
+    position: { width: 1120, height: 740 }
   };
 
   constructor(options = {}) {
@@ -104,7 +104,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
         tooltip(link, "URL individual baseada na configuração salva. Cole numa Browser Source do OBS. Clique para selecionar; alterações não salvas ainda não aparecem neste link.");
         link.value = url;
         link.addEventListener("click", () => link.select());
-        const copy = button("Copiar", "fa-copy");
+        const copy = button("Copiar", "fa-copy", { "aria-label": `Copiar link OBS de ${user.name}` });
         tooltip(copy, "Copiar o solo link salvo deste usuário para usar no OBS.");
         copy.addEventListener("click", async () => {
           try {
@@ -116,7 +116,9 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
             ui.notifications.warn("Clipboard indisponível. Use Ctrl+C no link selecionado.");
           }
         });
-        obsCell.append(link, copy);
+        const obsField = element("div", undefined, { class: "rpgup-copy-link" });
+        obsField.append(link, copy);
+        obsCell.append(obsField);
       } catch {
         obsCell.textContent = "Configure a Room e salve o slot para gerar o link.";
       }
