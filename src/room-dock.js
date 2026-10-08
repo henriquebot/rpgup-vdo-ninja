@@ -142,7 +142,8 @@ export class RoomDock extends ApplicationV2 {
     this._frameHost = element("div", undefined, { class: "rpgup-frame-host" });
     this._alert = element("p", "", { class: "rpgup-connection-alert", role: "status", hidden: "" });
     this._settings.append(this._status);
-    this._root.append(this._settings, this._frameHost, this._alert);
+    // Connection errors stay in normal layout, never cover settings or dropdowns.
+    this._root.append(this._settings, this._alert, this._frameHost);
     dock.addEventListener("change", () => {
       this.prefs.dock = dock.value;
       this._layout();
@@ -192,6 +193,7 @@ export class RoomDock extends ApplicationV2 {
       if (signal.aborted) return;
       if (!window.isSecureContext) throw new Error("Abra o Foundry por HTTPS (ou localhost) para permitir a câmera no iframe.");
       let world = worldConfig();
+      if (!world.roomId?.trim()) throw new Error("Room não configurada. GM: abra World / OBS e salve a sala.");
       // Validate room/assignment before fetching an image for a waiting player.
       participantURL(world, game.user, this.prefs, Array.from(game.users), location.href, null);
       let avatar;

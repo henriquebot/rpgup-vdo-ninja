@@ -1,6 +1,7 @@
-import { fillMissingSlots, validateWorld, QUALITY_PRESETS, ROOM_LAYOUTS } from "./config.js";
+import { MODULE_ID, fillMissingSlots, validateWorld, normalizePrefs, QUALITY_PRESETS, ROOM_LAYOUTS } from "./config.js";
 import { worldConfig, saveWorld } from "./settings.js";
-import { soloURL, obsExport } from "./urls.js";
+import { participantURL, soloURL, obsExport } from "./urls.js";
+import { prepareAvatar } from "./avatar.js";
 import { element, select, field, tooltip, panel, button, downloadJSON, report } from "./dom.js";
 
 export class WorldConfig extends foundry.applications.api.ApplicationV2 {
@@ -8,7 +9,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
   static DEFAULT_OPTIONS = {
     id: "rpgup-vdo-world-config", classes: ["rpgup-vdo", "rpgup-world-config"],
     window: { title: "RPGUP VDO.Ninja — World / OBS", icon: "fas fa-video", resizable: true },
-    position: { width: 920, height: 740 }
+    position: { width: 1120, height: 740 }
   };
 
   constructor(options = {}) {
@@ -27,6 +28,11 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     const signature = JSON.stringify(users.map(user => [user.id, user.name, user.isGM, user.avatar, user.active]));
     if (this._form && this._userSignature === signature) return this._form;
     const draft = this._form ? this._readDraft() : null;
+    // Stop background avatar preparation whenever the panel is rebuilt.
+    this._linksAbort?.abort();
+    const linksAbort = new AbortController();
+    this._linksAbort = linksAbort;
+    const pendingJoinLinks = [];
     const savedConfig = worldConfig();
     const config = draft ?? savedConfig;
     if (!draft) this._baseConfig = structuredClone(config);
@@ -65,7 +71,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     );
     const table = element("table");
     const head = element("tr");
-    const columns = ["Usuário / label Foundry", "Stream ID estável", "Avatar da mesa", "Solo link OBS"];
+    const columns = ["Usuário / label Foundry", "Stream ID estável", "Avatar da mesa", "Solo link OBS", "Entrar pelo navegador"];
     for (const label of columns) head.append(element("th", label, { scope: "col" }));
     const thead = element("thead");
     thead.append(head);
@@ -98,7 +104,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
         tooltip(link, "URL individual baseada na configuração salva. Cole numa Browser Source do OBS. Clique para selecionar; alterações não salvas ainda não aparecem neste link.");
         link.value = url;
         link.addEventListener("click", () => link.select());
-        const copy = button("Copiar", "fa-copy");
+        const copy = button("Copiar", "fa-copy", { "aria-label": `Copiar link OBS de ${user.name}` });
         tooltip(copy, "Copiar o solo link salvo deste usuário para usar no OBS.");
         copy.addEventListener("click", async () => {
           try {
@@ -110,15 +116,72 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
             ui.notifications.warn("Clipboard indisponível. Use Ctrl+C no link selecionado.");
           }
         });
-        obsCell.append(link, copy);
+        const obsField = element("div", undefined, { class: "rpgup-copy-link" });
+        obsField.append(link, copy);
+        obsCell.append(obsField);
       } catch {
         obsCell.textContent = "Configure a Room e salve o slot para gerar o link.";
       }
-      [name, slotCell, avatarCell, obsCell].forEach((cell, index) => { cell.dataset.label = columns[index]; });
-      row.append(name, slotCell, avatarCell, obsCell);
+      const joinCell = element("td");
+      try {
+        // This is a publisher link, NOT the viewer-only solo link for OBS.
+        // It must use the saved configuration so the same Stream ID is never silently changed.
+        participantURL(savedConfig, user, {}, users, location.href, null);
+        const joinField = element("div", undefined, { class: "rpgup-copy-link" });
+        const joinLink = element("input", undefined, {
+          readonly: "", "aria-label": `Link de entrada no navegador de ${user.name}`,
+          placeholder: "Preparando link…"
+        });
+        joinLink.addEventListener("click", () => joinLink.select());
+        const joinCopy = button("Copiar", "fa-copy", { "aria-label": `Copiar link de entrada de ${user.name}` });
+        joinCopy.disabled = true;
+        joinField.append(joinLink, joinCopy);
+        joinCell.append(joinField);
+        pendingJoinLinks.push(async () => {
+          // Respect this user's placeholder preference, then the GM's table avatar,
+          // then the Foundry avatar. Embed a small raster so VDO works without Foundry login/CORS.
+          let prefs = normalizePrefs();
+          try { prefs = normalizePrefs(user.getFlag?.(MODULE_ID, "preferences") ?? {}); } catch { /* User flags unavailable to GM: use Foundry/avatar defaults. */ }
+          let preparedAvatar = "default";
+          let avatarError = "";
+          try {
+            const avatarUser = { avatar: savedConfig.avatars?.[user.id] || user.avatar };
+            preparedAvatar = (await prepareAvatar(avatarUser, prefs, { signal: linksAbort.signal, baseURL: location.href })).value;
+          } catch (error) {
+            if (linksAbort.signal.aborted) return;
+            avatarError = error.message;
+          }
+          if (linksAbort.signal.aborted || this._form !== form) return;
+          const url = participantURL(savedConfig, user, prefs, users, location.href, preparedAvatar);
+          joinLink.value = url;
+          joinCopy.disabled = false;
+          tooltip(joinLink, "Entrada externa com nome, Stream ID e Room salvos. Compartilhe apenas com este jogador e feche a dock embutida para não publicar duas vezes.");
+          tooltip(joinCopy, "Copiar link de entrada externa. Contém o acesso à sala; envie somente ao jogador correspondente.");
+          joinCopy.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(url);
+              ui.notifications.info(`Link de entrada de ${user.name} copiado.`);
+            } catch {
+              joinLink.focus();
+              joinLink.select();
+              ui.notifications.warn("Clipboard indisponível. Use Ctrl+C no link selecionado.");
+            }
+          }, { signal: linksAbort.signal });
+          if (avatarError) {
+            joinCell.append(element("small", "Avatar não carregado: link usa o avatar padrão VDO.", { class: "rpgup-link-warning" }));
+            tooltip(joinCell.lastElementChild, avatarError);
+          }
+        });
+      } catch {
+        joinCell.textContent = "Configure a Room e salve o slot para gerar o link.";
+      }
+      [name, slotCell, avatarCell, obsCell, joinCell].forEach((cell, index) => { cell.dataset.label = columns[index]; });
+      row.append(name, slotCell, avatarCell, obsCell, joinCell);
       body.append(row);
     }
     table.append(thead, body);
+    // Never block the GM panel while avatars are prepared for external browser links.
+    void Promise.allSettled(pendingJoinLinks.map(start => start()));
     const generate = button("Gerar e salvar slots faltantes", "fa-wand-magic-sparkles");
     tooltip(generate, "Criar IDs somente para usuários que ainda não têm slot e salvar a Room e as associações no World. IDs existentes são preservados.");
     generate.addEventListener("click", async () => {
@@ -134,10 +197,10 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     });
     const save = button("Salvar configuração", "fa-check", { type: "submit", class: "rpgup-primary" });
     tooltip(save, "Salvar Room, áudio, Director e IDs no World. Usuários aguardando um ID entram na sala; quem já está conectado precisa aplicar/reconectar.");
-    const obsNotice = element("p", "Links e exportação OBS usam os valores salvos. Mudanças de Room, senha ou Stream ID exigem atualizar a fonte OBS.", { role: "status", class: "rpgup-save-status" });
+    const obsNotice = element("p", "Links OBS e links externos usam os valores salvos. Após salvar mudanças de Room, senha ou Stream ID, copie novamente os links.", { role: "status", class: "rpgup-save-status" });
     this._notice = obsNotice;
     form.addEventListener("input", () => {
-      obsNotice.textContent = "Há alterações não salvas. Os links OBS acima ainda correspondem à configuração anterior; salve para atualizar.";
+      obsNotice.textContent = "Há alterações não salvas. Os links OBS e de entrada externa acima ainda correspondem à configuração anterior; salve para atualizar.";
     });
     const exportLinks = tooltip(button("Baixar links OBS", "fa-download"), "Baixar JSON organizado com nome, ID e solo link de cada usuário associado na configuração salva. É uma lista de URLs para Browser Sources, não uma coleção de cenas OBS.");
     exportLinks.addEventListener("click", () => {
@@ -153,7 +216,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     tableWrap.append(table);
     const footer = element("footer", undefined, { class: "rpgup-config-footer" });
     footer.append(obsNotice, save);
-    form.append(panel("Participantes e fontes OBS", "IDs permanecem iguais entre sessões. Gerar cria apenas os faltantes e já salva. Avatar vazio usa o Foundry; deixe o ID vazio para desassociar.", participantActions, tableWrap), footer);
+    form.append(panel("Participantes e fontes OBS", "Gerar cria apenas IDs faltantes e já salva. Entrada externa usa a mesma Room, nome, ID e avatar: envie o link só ao jogador e peça para fechar a dock antes de abrir no navegador. Links podem conter senha; ao alterar configurações, salve antes de copiar.", participantActions, tableWrap), footer);
     this._readDraft = () => {
       const slots = { ...config.slots };
       for (const [userId, input] of this._inputs) {
@@ -224,6 +287,8 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
 
   _onClose(options) {
     super._onClose(options);
+    this._linksAbort?.abort();
+    this._linksAbort = null;
     this._form = this._readDraft = this._saveDraft = null;
   }
 }

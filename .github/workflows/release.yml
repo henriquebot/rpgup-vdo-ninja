@@ -1,0 +1,63 @@
+name: Validate and publish Foundry module
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Test and validate manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test
+      - run: npm run check
+      - run: npm run package
+      - name: Install browser test dependency
+        run: npm install --no-save playwright
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run ApplicationV2 browser fixture
+        run: npm run test:browser
+
+  release:
+    name: Publish GitHub Release assets
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm run package
+      - name: Package installable module
+        run: |
+          cd dist
+          zip -qr ../rpgup-vdo-ninja.zip rpgup-vdo-ninja
+      - name: Publish manifest and ZIP as versioned release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          MANIFEST_VERSION=$(node -p "require('./module.json').version")
+          test "$VERSION" = "$MANIFEST_VERSION"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION já existe: não sobrescrever assets publicados."
+            exit 0
+          fi
+          gh release create "v$VERSION" module.json rpgup-vdo-ninja.zip \
+            --target "$GITHUB_SHA" \
+            --title "RPGUP VDO.Ninja v$VERSION" \
+            --generate-notes
