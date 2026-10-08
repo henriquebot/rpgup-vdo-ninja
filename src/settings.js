@@ -19,7 +19,7 @@ export function userPrefs() {
   const prefs = game.user.getFlag(MODULE_ID, "preferences");
   // Versions up to 1.0.1 defaulted to floating. Migrate that default once to left;
   // keep explicit side/top/bottom choices, and preserve all choices saved under v3.
-  const migrateFloating = prefs && prefs.schemaVersion !== 3 && (!prefs.dock || prefs.dock === "floating");
+  const migrateFloating = prefs && (Number(prefs.schemaVersion) || 0) < 3 && (!prefs.dock || prefs.dock === "floating");
   return normalizePrefs(migrateFloating ? { ...prefs, dock: "left" } : prefs);
 }
 
