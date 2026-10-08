@@ -8,6 +8,11 @@
 }
 .rpgup-vdo .window-content { overflow: auto; padding: 16px; container-type: inline-size; container-name: rpgup; }
 .rpgup-vdo .window-content input:not([type="checkbox"]):not([type="range"]), .rpgup-vdo .window-content select { border: 1px solid var(--rpgup-line); border-radius: 5px; min-height: 32px; padding: 4px 7px; color: var(--rpgup-text); background: color-mix(in srgb, var(--rpgup-text) 5%, transparent); }
+/* Native dropdown contrast for Windows and dark Foundry themes. */
+.rpgup-vdo .window-content select { color-scheme: dark; background-color: #23252b; color: #f7f4ec; }
+.rpgup-vdo .window-content select option { background-color: #23252b; color: #f7f4ec; }
+.rpgup-vdo .window-content select option:checked { background-color: #75583a; color: #fff9ed; }
+.rpgup-vdo .window-content select option:disabled { color: #a5a5ab; }
 .rpgup-vdo .window-content button { border-radius: 5px; min-height: 30px; padding: 4px 8px; }
 .rpgup-vdo .window-content button:not(.rpgup-primary) { color: var(--rpgup-text); background: var(--rpgup-card); border: 1px solid var(--rpgup-line); }
 .rpgup-vdo .window-content button:not(.rpgup-primary):hover { border-color: var(--rpgup-accent); }
@@ -56,7 +61,7 @@
 .rpgup-avatar-summary { display: flex; align-items: center; gap: 10px; color: var(--rpgup-muted); }
 .rpgup-avatar-summary img { flex-shrink: 0; border-radius: 7px; }
 .rpgup-avatar-status { overflow-wrap: anywhere; }
-.rpgup-connection-alert { position: absolute; top: 12px; left: 12px; right: 12px; margin: 0; padding: 10px; background: #17191de8; color: #fff; }
+.rpgup-connection-alert { position: static; flex-shrink: 0; margin: 8px; padding: 10px; border: 1px solid var(--rpgup-line); border-radius: 6px; background: #17191d; color: #f7f4ec; }
 .rpgup-room-dock .rpgup-attention { color: var(--color-level-warning, #e9b35a); }
 .rpgup-preferences { padding: 6px 0; }
 .rpgup-preferences input[type="url"] { width: 200px; max-width: 100%; }
@@ -78,7 +83,7 @@ body.rpgup-vdo-docked #interface {
 .rpgup-config-form { display: flex; flex-direction: column; gap: 16px; }
 .rpgup-world-config { max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); min-width: 0; }
 .rpgup-table-wrap { overflow: auto; margin-top: 12px; }
-.rpgup-config-form table { width: 100%; table-layout: fixed; margin: 0; }
+.rpgup-config-form table { width: 100%; min-width: 1000px; table-layout: fixed; margin: 0; }
 .rpgup-config-form td, .rpgup-config-form th { padding: 10px 8px; overflow-wrap: anywhere; vertical-align: top; }
 .rpgup-config-form th { text-align: left; font-size: 11px; color: var(--rpgup-muted); font-weight: 600; border-bottom: 1px solid var(--rpgup-line); }
 .rpgup-config-form tbody tr + tr { border-top: 1px solid var(--rpgup-line); }
@@ -86,6 +91,12 @@ body.rpgup-vdo-docked #interface {
 .rpgup-config-form td .rpgup-presence { margin-top: 6px; }
 .rpgup-config-form td input { width: 100%; }
 .rpgup-config-form td button { margin-top: 4px; }
+.rpgup-config-form .rpgup-copy-link { display: flex; gap: 4px; align-items: center; min-width: 0; }
+.rpgup-config-form .rpgup-copy-link input { flex: 1 1 auto; width: 0; min-width: 0; }
+.rpgup-config-form .rpgup-copy-link button { flex: 0 0 auto; margin: 0; min-width: 32px; }
+.rpgup-config-form .rpgup-copy-link button span { display: none; }
+.rpgup-config-form .rpgup-copy-link button i { margin: 0; }
+.rpgup-config-form .rpgup-link-warning { display: block; color: var(--color-level-warning, #e9b35a); margin-top: 4px; }
 .rpgup-config-footer { position: sticky; bottom: -16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--rpgup-line); background: var(--background-color, #22242b); }
 .rpgup-config-footer p { flex: 1 1 240px; margin: 0; font-size: 12px; color: var(--rpgup-muted); }
 .rpgup-config-footer button { flex: 0 1 auto; width: auto; min-height: 34px; }
@@ -95,7 +106,7 @@ body.rpgup-vdo-docked #interface {
   .rpgup-room-dock .rpgup-toolbar { gap: 10px; }
   .rpgup-room-dock .rpgup-field { flex: 1 1 160px; }
   .rpgup-room-dock .rpgup-toggle { flex-basis: 100%; }
-  .rpgup-config-form table, .rpgup-config-form tbody, .rpgup-config-form tr, .rpgup-config-form td { display: block; width: 100%; }
+  .rpgup-config-form table, .rpgup-config-form tbody, .rpgup-config-form tr, .rpgup-config-form td { display: block; width: 100%; min-width: 0; }
   .rpgup-config-form thead { display: none; }
   .rpgup-config-form td::before { content: attr(data-label); display: block; margin-bottom: 5px; font-size: 11px; color: var(--rpgup-muted); }
   .rpgup-config-form td { padding: 6px 0; }
@@ -107,7 +118,7 @@ body.rpgup-vdo-docked #interface {
   .rpgup-toolbar { gap: 10px; }
   .rpgup-field { flex: 1 1 160px; }
   .rpgup-toggle { flex-basis: 100%; }
-  .rpgup-config-form table, .rpgup-config-form tbody, .rpgup-config-form tr, .rpgup-config-form td { display: block; width: 100%; }
+  .rpgup-config-form table, .rpgup-config-form tbody, .rpgup-config-form tr, .rpgup-config-form td { display: block; width: 100%; min-width: 0; }
   .rpgup-config-form thead { display: none; }
   .rpgup-config-form td::before { content: attr(data-label); display: block; margin-bottom: 5px; font-size: 11px; color: var(--rpgup-muted); }
   .rpgup-config-form td { padding: 6px 0; }
