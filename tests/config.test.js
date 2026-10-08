@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fillMissingSlots, validateWorld, parseExtraQuery, normalizePrefs, dockPosition } from "../src/config.js";
+import { fillMissingSlots, validateWorld, parseExtraQuery, normalizePrefs, dockPosition, suggestRoomId } from "../src/config.js";
 import { participantURL, soloURL, obsExport } from "../src/urls.js";
 
 const users = [
@@ -174,4 +174,12 @@ test("seis participantes conservam IDs e exportam somente usuários associados, 
   }
   assert.equal(obsExport(config, [...group, { id: "no_slot", name: "Sem slot" }]).sources.length, 6);
   assert.deepEqual(config.slots, fillMissingSlots(config.slots, group));
+});
+
+test("Room ID inicial é derivada do título do mundo sem alterar salas salvas", () => {
+  assert.equal(suggestRoomId({ title: "Crônicas de Artraga" }), "CronicasdeArtraga");
+  assert.equal(suggestRoomId({ title: "  Poké & Dragons!  " }), "PokeDragons");
+  assert.equal(suggestRoomId({ title: "!!!", id: "world123" }), "MesaVDO");
+  assert.equal(suggestRoomId({ title: "A".repeat(80) }).length, 49);
+  assert.match(suggestRoomId({ title: "Ção — Vórtice" }), /^[A-Za-z0-9]{1,49}$/);
 });
