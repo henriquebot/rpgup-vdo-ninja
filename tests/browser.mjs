@@ -408,6 +408,15 @@ try {
   const panelOverflow = await page.locator(".rpgup-config-form").evaluate(form => form.scrollWidth > form.clientWidth + 2);
   assert.equal(panelOverflow, false, "Painel GM fica legível em viewport estreita");
   await page.evaluate(() => fixture.closeConfig());
+  await page.evaluate(async () => {
+    game.world = { title: "Crônicas de Artraga" };
+    await fixture.setConfig({ ...fixture.config(), roomId: "" });
+    await fixture.menu("worldConfig");
+  });
+  await worldTab(page, "general");
+  assert.equal(await page.locator('input[name="roomId"]').inputValue(), "CronicasdeArtraga", "Room vazia sugere nome do mundo");
+  assert.equal((await page.evaluate(() => fixture.config())).roomId, "", "Sugestão não altera configuração sem salvar");
+  await page.evaluate(() => fixture.closeConfig());
   assert.deepEqual(errors, []);
   assert.deepEqual(guestErrors, []);
   await page.evaluate(async () => { await (await fixture.dock()).close(); });
