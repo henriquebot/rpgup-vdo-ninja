@@ -1,14 +1,15 @@
-import { MODULE_ID, fillMissingSlots, validateWorld, normalizePrefs, QUALITY_PRESETS, ROOM_LAYOUTS } from "./config.js";
+import { MODULE_ID, fillMissingSlots, validateWorld, normalizePrefs, suggestRoomId, QUALITY_PRESETS, ROOM_LAYOUTS } from "./config.js";
 import { worldConfig, saveWorld } from "./settings.js";
 import { participantURL, soloURL, obsExport } from "./urls.js";
 import { prepareAvatar } from "./avatar.js";
-import { element, select, field, tooltip, panel, button, downloadJSON, report } from "./dom.js";
+import { element, select, field, tooltip, button, downloadJSON, report } from "./dom.js";
+import { createIconTabs } from "./tabs.js";
 
 export class WorldConfig extends foundry.applications.api.ApplicationV2 {
   static instance;
   static DEFAULT_OPTIONS = {
     id: "rpgup-vdo-world-config", classes: ["rpgup-vdo", "rpgup-world-config"],
-    window: { title: "RPGUP VDO.Ninja — World / OBS", icon: "fas fa-video", resizable: true },
+    window: { title: "RPGUP VDO.Ninja — Configurar mesa", icon: "fas fa-video", resizable: true },
     position: { width: 1120, height: 740 }
   };
 
@@ -40,7 +41,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     const form = element("form", undefined, { class: "rpgup-config-form" });
     this._form = form;
     const room = element("input", undefined, { name: "roomId", required: "", maxlength: "49", pattern: "[A-Za-z0-9]+" });
-    room.value = config.roomId;
+    room.value = config.roomId || suggestRoomId(game.world);
     const extra = element("input", undefined, { name: "extraQuery", placeholder: "password=Senha123&roombitrate=500" });
     extra.value = config.extraQuery;
     const audio = select({ discord: "Discord (VDO sem microfone/reprodução)", vdo: "Áudio e controles nativos VDO.Ninja" }, config.audio, "audio");
@@ -61,13 +62,17 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
       field("Qualidade dos vídeos", quality, "Escolha um limite para os vídeos da mesa. Automático mantém o VDO adaptativo. As opções avançadas têm prioridade sobre o preset. Todos precisam aplicar/reconectar após mudar."),
       field("Layout das câmeras", roomLayout, "Compacto usa cover nativo para preencher as áreas das câmeras, podendo recortar a imagem e o self-preview. Padrão não adiciona layout. Só afeta a Room, inclusive o preview do Director; links OBS não mudam. Salve e aplique/reconecte. Resultado visual depende da Room; parâmetros avançados continuam ativos.")
     );
-    const advanced = element("details", undefined, { class: "rpgup-advanced" });
-    advanced.append(element("summary", "Parâmetros avançados"),
-      field("Parâmetros adicionais", extra, "Opções oficiais permitidas, como password=Senha123. Deixe vazio para usar o preset. Não informe uma URL completa; esses valores são compartilhados com os usuários do World."),
-      element("p", "Permitidos: password, roombitrate, totalroombitrate, videobitrate, codec, width, height, fps, maxframerate, structure e cover. Layout: structure&cover sem valores; cover=2 limita o recorte ao eixo horizontal. Valores aqui têm prioridade sobre as opções acima e layout nunca entra nos links OBS.", { class: "rpgup-help" })
+    const advanced = element("div", undefined, { class: "rpgup-tab-section" });
+    advanced.append(
+      element("p", "Parâmetros opcionais compartilhados. Não informe a URL completa. Após salvar, os participantes conectados precisam reconectar.", { class: "rpgup-help" }),
+      field("Parâmetros adicionais", extra, "Exemplo: password=Senha123. Use somente os parâmetros permitidos; eles têm prioridade sobre o preset de qualidade."),
+      element("p", "Permitidos: password, roombitrate, totalroombitrate, videobitrate, codec, width, height, fps, maxframerate, structure e cover. Layout: structure&cover sem valores; cover=2 faz recorte horizontal. Layout não entra nos links OBS.", { class: "rpgup-help" })
     );
-    form.append(
-      intro, panel("Conexão e qualidade", "Compartilhado com os participantes deste World. Depois de salvar, quem já está conectado aplica as mudanças pela engrenagem da dock.", roomFields, qualityHelp, advanced)
+    const general = element("div", undefined, { class: "rpgup-tab-section" });
+    general.append(
+      intro,
+      element("p", "Configuração compartilhada. O Room ID sugerido usa o nome deste mundo, mas você pode mudá-lo antes de salvar.", { class: "rpgup-help" }),
+      roomFields, qualityHelp
     );
     const table = element("table");
     const head = element("tr");
@@ -216,7 +221,39 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     tableWrap.append(table);
     const footer = element("footer", undefined, { class: "rpgup-config-footer" });
     footer.append(obsNotice, save);
-    form.append(panel("Participantes e fontes OBS", "Gerar cria apenas IDs faltantes e já salva. Entrada externa usa a mesma Room, nome, ID e avatar: envie o link só ao jogador e peça para fechar a dock antes de abrir no navegador. Links podem conter senha; ao alterar configurações, salve antes de copiar.", participantActions, tableWrap), footer);
+    const participants = element("div", undefined, { class: "rpgup-tab-section" });
+    participants.append(
+      element("p", "Gere somente os IDs que faltam. Links externos são individuais: envie ao jogador certo e peça para fechar a dock embutida. Links podem conter senha.", { class: "rpgup-help" }),
+      participantActions, tableWrap
+    );
+    const help = element("div", undefined, { class: "rpgup-tab-section" });
+    help.append(
+      element("p", "Primeiro escolha a sala e salve; depois gere os IDs faltantes na guia de participantes. Para usar a dock, volte à janela de câmeras e clique em Aplicar / reconectar.", { class: "rpgup-help" }),
+      element("p", "Solo link OBS é só para o OBS visualizar uma câmera. Entrar pelo navegador publica a câmera do jogador usando o ID estável; envie esse link somente a ele.", { class: "rpgup-help" }),
+      element("p", "Discord mantém o áudio fora do VDO. O GM pode ativar o Director e controlar a cena na própria interface do VDO.Ninja.", { class: "rpgup-help" })
+    );
+    const tabs = createIconTabs({
+      id: "rpgup-world", label: "Configurações da mesa",
+      initial: this._selectedTab ?? "general",
+      onChange: tab => { this._selectedTab = tab; },
+      tabs: [
+        { key: "general", title: "Sala e qualidade", icon: "fa-house", children: [general] },
+        { key: "participants", title: "Participantes e links", icon: "fa-users", children: [participants] },
+        { key: "advanced", title: "Parâmetros avançados", icon: "fa-sliders", children: [advanced] },
+        { key: "help", title: "Ajuda e primeiros passos", icon: "fa-circle-question", children: [help] }
+      ],
+      tourSteps: [
+        { tab: "general", target: () => room, text: "A sala é sugerida a partir do nome do mundo. Você pode editar o ID antes de salvar." },
+        { tab: "general", target: () => audio, text: "Selecione Discord para manter o áudio fora do VDO ou ative o áudio nativo." },
+        { tab: "general", target: () => roomLayout, text: "Escolha o layout das câmeras. Compacto preenche os espaços e pode recortar imagens." },
+        { tab: "participants", target: () => generate, text: "Gere e salve somente os IDs dos jogadores que ainda não têm um." },
+        { tab: "participants", target: () => tableWrap, text: "Aqui ficam o link OBS de visualização e o link para entrar diretamente no navegador." },
+        { tab: "advanced", target: () => extra, text: "Parâmetros extras são opcionais. Use apenas se sua mesa realmente precisar." },
+        { tab: "help", target: () => help, text: "Consulte esta ajuda quando quiser lembrar a diferença entre OBS e entrada externa." },
+        { tab: "general", target: () => save, text: "Salve as mudanças. Depois use Aplicar / reconectar na dock para que entrem em vigor." }
+      ]
+    });
+    form.append(tabs.root, footer);
     this._readDraft = () => {
       const slots = { ...config.slots };
       for (const [userId, input] of this._inputs) {
