@@ -140,7 +140,8 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
         pendingJoinLinks.push(async () => {
           // Respect this user's placeholder preference, then the GM's table avatar,
           // then the Foundry avatar. Embed a small raster so VDO works without Foundry login/CORS.
-          const prefs = normalizePrefs(user.getFlag?.(MODULE_ID, "preferences") ?? {});
+          let prefs = normalizePrefs();
+          try { prefs = normalizePrefs(user.getFlag?.(MODULE_ID, "preferences") ?? {}); } catch { /* User flags unavailable to GM: use Foundry/avatar defaults. */ }
           let preparedAvatar = "default";
           let avatarError = "";
           try {
