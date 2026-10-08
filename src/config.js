@@ -11,7 +11,7 @@ export const QUALITY_PRESETS = {
 };
 export const DEFAULT_WORLD = { roomId: "", extraQuery: "", audio: "discord", directorUserId: "", slots: {}, quality: "native", avatars: {}, roomLayout: "native" };
 export const DEFAULT_PREFS = {
-  dock: "floating", autoOpen: true,
+  dock: "left", autoOpen: true,
   zoom: 1, avatar: "foundry", avatarURL: "",
   sideWidth: 440, barHeight: 360,
   floating: { width: 720, height: 600, left: 120, top: 80 }
@@ -95,7 +95,7 @@ export function fillMissingSlots(slots, users, randomBytes = size => crypto.getR
 const bounded = (value, fallback, min, max) => Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
 export function normalizePrefs(input = {}) {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     dock: Object.hasOwn(DOCKS, input?.dock) ? input.dock : DEFAULT_PREFS.dock,
     autoOpen: typeof input?.autoOpen === "boolean" ? input.autoOpen : true,
     zoom: bounded(input?.zoom, 1, 0.5, 1.5),
