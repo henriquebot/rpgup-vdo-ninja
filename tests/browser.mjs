@@ -48,6 +48,7 @@ try {
   await page.goto(base + "/tests/harness.html");
   await page.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
   assert.equal(await page.locator("#rpgup-vdo-settings").isVisible(), false);
+  assert.equal(await page.locator("#rpgup-vdo-room").getAttribute("data-dock"), "left", "Novo usuário começa com dock à esquerda");
   assert.equal(await page.locator(".window-header [data-action=toggleModuleSettings]").count(), 1);
   assert.equal(await page.locator(".window-header [data-action=undock]").count(), 1);
   assert.equal(await page.locator(".window-header [data-action=reloadRoom]").count(), 1);
@@ -120,6 +121,15 @@ try {
   await page.getByRole("textbox", { name: "Stream ID de Jogador A", exact: true }).fill("slot_a");
   assert.match(await page.getByRole("combobox", { name: "directorUserId", exact: true }).getAttribute("data-tooltip"), /Scene Preview/);
   assert.equal(await page.getByRole("textbox", { name: "Solo link OBS", exact: false }).count(), 3);
+  await page.waitForFunction(() => document.querySelector('input[aria-label="Link de entrada no navegador de Jogador A"]')?.value.startsWith("https://vdo.ninja/"));
+  const browserJoin = new URL(await page.getByRole("textbox", { name: "Link de entrada no navegador de Jogador A" }).inputValue());
+  assert.equal(browserJoin.searchParams.get("room"), "FixtureRoom123");
+  assert.equal(browserJoin.searchParams.get("push"), "slot_a");
+  assert.equal(browserJoin.searchParams.get("label"), "Jogador A");
+  assert.equal(browserJoin.searchParams.get("password"), "Fixture123");
+  assert.equal(browserJoin.searchParams.has("view"), false, "Link de jogador publica, não é viewer OBS");
+  assert.equal(browserJoin.searchParams.get("avatar"), "default", "Jogador sem avatar usa placeholder padrão");
+  assert.equal(await page.getByRole("button", { name: "Copiar link de entrada de Jogador A" }).isEnabled(), true);
   await page.getByRole("combobox", { name: "audio", exact: true }).selectOption("vdo");
   await page.getByRole("combobox", { name: "directorUserId", exact: true }).selectOption("gm1");
   await page.getByRole("combobox", { name: "quality", exact: true }).selectOption("economy");
@@ -131,6 +141,15 @@ try {
   assert.equal((await page.evaluate(() => fixture.config())).quality, "economy");
   assert.equal((await page.evaluate(() => fixture.config())).roomLayout, "compact");
   assert.equal(await page.getByRole("combobox", { name: "roomLayout", exact: true }).inputValue(), "compact");
+  await page.waitForFunction(() => {
+    const input = document.querySelector('input[aria-label="Link de entrada no navegador de Jogador A"]');
+    return input?.value && new URL(input.value).searchParams.get("avatar")?.startsWith("data:image/");
+  });
+  const updatedJoin = new URL(await page.getByRole("textbox", { name: "Link de entrada no navegador de Jogador A" }).inputValue());
+  assert.equal(updatedJoin.searchParams.get("push"), "slot_a", "Link externo preserva Stream ID");
+  assert.equal(updatedJoin.searchParams.get("label"), "Jogador A");
+  assert.equal(updatedJoin.searchParams.has("noaudio"), false, "Link externo segue áudio VDO configurado");
+  assert.ok(updatedJoin.searchParams.get("avatar").startsWith("data:image/"), "Avatar Foundry da mesa incorporado funciona no navegador externo");
   const obsDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Baixar links OBS", exact: true }).click();
   const downloadedLinks = await obsDownload;
