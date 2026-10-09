@@ -4,12 +4,13 @@ import { participantURL, soloURL, obsExport, avatarURLBudget } from "./urls.js";
 import { prepareAvatar } from "./avatar.js";
 import { element, select, field, tooltip, button, downloadJSON, report } from "./dom.js";
 import { createIconTabs } from "./tabs.js";
+import { createPersonalTabs } from "./personal-settings.js";
 
 export class WorldConfig extends foundry.applications.api.ApplicationV2 {
   static instance;
   static DEFAULT_OPTIONS = {
     id: "rpgup-vdo-world-config", classes: ["rpgup-vdo", "rpgup-world-config"],
-    window: { title: "RPGUP VDO.Ninja — Configurar mesa", icon: "fas fa-video", resizable: true },
+    window: { title: "RPGUP VDO.Ninja — Configurações", icon: "fas fa-video", resizable: true },
     position: { width: 1120, height: 740 }
   };
 
@@ -19,12 +20,23 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     WorldConfig.instance = this;
   }
 
-  _canRender(options) {
-    super._canRender(options);
-    if (!game.user.isGM) throw new Error("Somente o GM pode configurar a Room e os slots.");
-  }
-
   async _renderHTML() {
+    if (!game.user.isGM) {
+      if (this._form) return this._form;
+      const personal = createPersonalTabs();
+      const container = element("section", undefined, { class: "rpgup-config-form rpgup-personal-only" });
+      const tabs = createIconTabs({
+        id: "rpgup-world",
+        label: "Preferências pessoais VDO.Ninja",
+        initial: this._selectedTab ?? "connect",
+        onChange: tab => { this._selectedTab = tab; },
+        tabs: personal.tabs,
+        tourSteps: personal.tourSteps
+      });
+      container.append(tabs.root);
+      this._form = container;
+      return container;
+    }
     const users = Array.from(game.users);
     const signature = JSON.stringify(users.map(user => [user.id, user.name, user.isGM, user.avatar, user.color?.css ?? String(user.color ?? ""), user.active]));
     if (this._form && this._userSignature === signature) return this._form;
@@ -225,7 +237,8 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     tooltip(save, "Salvar Room, áudio, Director e IDs no World. Usuários aguardando um ID entram na sala; quem já está conectado precisa aplicar/reconectar.");
     const obsNotice = element("p", "Links OBS e links externos usam os valores salvos. Após salvar mudanças de Room, senha ou Stream ID, copie novamente os links.", { role: "status", class: "rpgup-save-status" });
     this._notice = obsNotice;
-    form.addEventListener("input", () => {
+    form.addEventListener("input", event => {
+      if (event.target.closest(".rpgup-personal-settings")) return;
       obsNotice.textContent = "Há alterações não salvas. Os links OBS e de entrada externa acima ainda correspondem à configuração anterior; salve para atualizar.";
     });
     const exportLinks = tooltip(button("Baixar links OBS", "fa-download"), "Baixar JSON organizado com nome, ID e solo link de cada usuário associado na configuração salva. É uma lista de URLs para Browser Sources, não uma coleção de cenas OBS.");
@@ -249,20 +262,26 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     );
     const help = element("div", undefined, { class: "rpgup-tab-section" });
     help.append(
-      element("p", "Primeiro escolha a sala e salve; depois gere os IDs faltantes na guia de participantes. Para usar a dock, volte à janela de câmeras e clique em Aplicar / reconectar.", { class: "rpgup-help" }),
+      element("p", "Primeiro escolha a sala e salve; depois gere os IDs faltantes na guia de participantes. Para entrar na chamada, use a guia Conexão desta janela.", { class: "rpgup-help" }),
       element("p", "Solo link OBS é só para o OBS visualizar uma câmera. Entrar pelo navegador publica a câmera do jogador usando o ID estável; envie esse link somente a ele.", { class: "rpgup-help" }),
       element("p", "Discord mantém o áudio fora do VDO. O GM pode ativar o Director e controlar a cena na própria interface do VDO.Ninja.", { class: "rpgup-help" })
     );
+    const personal = createPersonalTabs();
+    const personalKeys = new Set(personal.tabs.map(tab => tab.key));
     const tabs = createIconTabs({
-      id: "rpgup-world", label: "Configurações da mesa",
+      id: "rpgup-world", label: "Configurações da mesa e da chamada",
       initial: this._selectedTab ?? "general",
-      onChange: tab => { this._selectedTab = tab; },
+      onChange: tab => {
+        this._selectedTab = tab;
+        footer.hidden = personalKeys.has(tab);
+      },
       tabs: [
         { key: "general", title: "Sala e qualidade", icon: "fa-house", children: [general] },
         { key: "participants", title: "Participantes e links", icon: "fa-users", children: [participants] },
         { key: "appearance", title: "Aparência das câmeras", icon: "fa-palette", children: [appearance] },
         { key: "advanced", title: "Parâmetros avançados", icon: "fa-sliders", children: [advanced] },
-        { key: "help", title: "Ajuda e primeiros passos", icon: "fa-circle-question", children: [help] }
+        { key: "help", title: "Ajuda e primeiros passos", icon: "fa-circle-question", children: [help] },
+        ...personal.tabs
       ],
       tourSteps: [
         { tab: "general", target: () => room, text: "A sala é sugerida a partir do nome do mundo. Você pode editar o ID antes de salvar." },
@@ -273,7 +292,8 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
         { tab: "appearance", target: () => theme, text: "O mestre escolhe o tema ou Sem bordas. A cor principal de cada câmera usa a cor configurada pelo respectivo usuário Foundry." },
         { tab: "advanced", target: () => extra, text: "Parâmetros extras são opcionais. Use apenas se sua mesa realmente precisar." },
         { tab: "help", target: () => help, text: "Consulte esta ajuda quando quiser lembrar a diferença entre OBS e entrada externa." },
-        { tab: "general", target: () => save, text: "Salve as mudanças. Depois use Aplicar / reconectar na dock para que entrem em vigor." }
+        { tab: "general", target: () => save, text: "Salve as mudanças. Depois use Aplicar / reconectar na guia Conexão." },
+        ...personal.tourSteps
       ]
     });
     form.append(tabs.root, footer);
@@ -319,7 +339,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
   }
 
   get dirty() {
-    if (!this._form) return false;
+    if (!game.user.isGM || !this._form) return false;
     const base = { ...this._baseConfig, quality: this._baseConfig.quality ?? "native", avatars: this._baseConfig.avatars ?? {}, roomLayout: this._baseConfig.roomLayout ?? "native", theme: this._baseConfig.theme ?? "modern" };
     return JSON.stringify(this._readDraft()) !== JSON.stringify(base);
   }
