@@ -5,6 +5,7 @@ import { worldConfig, userPrefs, savePrefs } from "./settings.js";
 import { element, select, field, tooltip, panel, button, report } from "./dom.js";
 import { WorldConfig } from "./world-config.js";
 import { createIconTabs } from "./tabs.js";
+import { createDockQuickControls } from "./dock-quick-controls.js";
 
 const ApplicationV2 = foundry.applications.api.ApplicationV2;
 
@@ -62,6 +63,16 @@ export class RoomDock extends ApplicationV2 {
     if (!this._settings) return;
     this._settings.hidden = !this._settings.hidden;
     this._settingsButton.setAttribute("aria-expanded", String(!this._settings.hidden));
+  }
+
+  _ensureQuickControls() {
+    if (this._quickControls) return;
+    this._quickControls = createDockQuickControls({
+      settings: () => this._toggleSettings(),
+      reload: () => this._reloadRoom(),
+      undock: () => this._undock(),
+      close: () => { void this.close().catch(report); }
+    });
   }
 
   _undock() {
@@ -200,6 +211,7 @@ export class RoomDock extends ApplicationV2 {
 
   async _onRender(context, options) {
     await super._onRender(context, options);
+    this._ensureQuickControls();
     this._layout();
     if (!this._observer) {
       this._observer = new ResizeObserver(() => this._zoomFrame());
@@ -215,6 +227,7 @@ export class RoomDock extends ApplicationV2 {
     if (this._connecting) return;
     this._connecting = true;
     this._reloadButton.disabled = true;
+    this._quickControls?.setReloadDisabled(true);
     const signal = this._listeners.signal;
     try {
       if (saveDraft && game.user.isGM && WorldConfig.instance?.dirty) await WorldConfig.instance.saveDraft();
@@ -264,6 +277,7 @@ export class RoomDock extends ApplicationV2 {
       this._iframe.allow = "camera; autoplay; fullscreen; display-capture; picture-in-picture" + (world.audio === "vdo" ? "; microphone" : "");
       this._pending = false;
       this._settingsButton.classList.remove("rpgup-attention");
+      this._quickControls?.setAttention(false);
       tooltip(this._settingsButton, "Mostrar as guias de configuração, janela, imagem e ajuda. Câmera e PiP ficam no VDO.Ninja.");
       this._alert.hidden = true;
       this._activeURL = url;
@@ -274,6 +288,7 @@ export class RoomDock extends ApplicationV2 {
       if (!signal.aborted) {
         this._status.textContent = error.message;
         this._settingsButton?.classList.add("rpgup-attention");
+        this._quickControls?.setAttention(true);
         if (this._settingsButton) tooltip(this._settingsButton, error.message + " Abra as configurações para conferir.");
         this._alert.textContent = error.message;
         this._alert.hidden = Boolean(this._iframe);
@@ -283,6 +298,7 @@ export class RoomDock extends ApplicationV2 {
       if (this._listeners.signal === signal) {
         this._connecting = false;
         this._reloadButton.disabled = false;
+        this._quickControls?.setReloadDisabled(false);
       }
     }
   }
@@ -296,6 +312,7 @@ export class RoomDock extends ApplicationV2 {
     }
     this._pending = true;
     this._settingsButton?.classList.add("rpgup-attention");
+    this._quickControls?.setAttention(true);
     this._status.textContent = "Configuração alterada. Abra a engrenagem e clique em Aplicar / reconectar para usá-la (a câmera será desconectada).";
     if (this._settingsButton) tooltip(this._settingsButton, this._status.textContent);
   }
@@ -308,6 +325,7 @@ export class RoomDock extends ApplicationV2 {
       const position = dockPosition(this.prefs, { width: window.innerWidth, height: window.innerHeight });
       this.setPosition(position);
       this._reserveInterface(position);
+      this._quickControls?.update(this.element.getBoundingClientRect(), this.prefs.dock);
       const side = ["left", "right"].includes(this.prefs.dock);
       this._size.disabled = this.prefs.dock === "floating";
       this._size.min = side ? "320" : "240";
@@ -333,6 +351,7 @@ export class RoomDock extends ApplicationV2 {
     super._onPosition(position);
     if (this._root && !this._layingOut) {
       this._reserveInterface(position);
+      this._quickControls?.update(this.element.getBoundingClientRect(), this.prefs.dock);
       this._scheduleSave();
     }
   }
@@ -380,6 +399,8 @@ export class RoomDock extends ApplicationV2 {
     this._connecting = false;
     this._observer?.disconnect();
     this._observer = null;
+    this._quickControls?.destroy();
+    this._quickControls = null;
     document.body.classList.remove("rpgup-vdo-docked");
     for (const side of ["left", "right", "top", "bottom"]) document.body.style.removeProperty(`--rpgup-vdo-${side}`);
     // Removing the iframe closes its session/capture; reopening creates only one frame.
