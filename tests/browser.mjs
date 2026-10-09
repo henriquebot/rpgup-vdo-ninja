@@ -352,6 +352,7 @@ try {
   console.log("Regressão: gerar/salvar sincroniza GM e jogador; rascunho sobrevive; reconectar/recarregar preserva IDs: OK.");
 
   await page.evaluate(() => fixture.menu("worldConfig"));
+  await worldTab(page, "participants");
   await page.getByRole("textbox", { name: "Stream ID de Jogador B", exact: true }).fill("unsaved_b");
   await page.evaluate(() => fixture.setConfig({ ...fixture.config(), roomId: "OtherGMRoom" }));
   await page.getByRole("button", { name: "Salvar configuração", exact: true }).click();
@@ -360,6 +361,7 @@ try {
   assert.equal(await page.getByRole("textbox", { name: "Stream ID de Jogador B", exact: true }).inputValue(), "unsaved_b");
   await page.evaluate(() => fixture.closeConfig());
   await page.evaluate(() => fixture.menu("worldConfig"));
+  await worldTab(page, "participants");
   await page.getByRole("textbox", { name: "Stream ID de Jogador B", exact: true }).fill("");
   await page.evaluate(() => { fixture.failSave = true; });
   await page.getByRole("button", { name: "Gerar e salvar slots faltantes", exact: true }).click();
@@ -370,6 +372,7 @@ try {
   console.log("Conflito entre GMs e gravação recusada: sem falso sucesso nem perda do rascunho: OK.");
 
   await page.evaluate(() => fixture.menu("worldConfig"));
+  await worldTab(page, "participants");
   await page.getByRole("textbox", { name: "Stream ID de Jogador B", exact: true }).fill("membership_draft");
   await page.evaluate(() => {
     const user = { id: "replacement", name: "Jogador criado depois", isGM: false };
