@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const { chromium } = await import(process.env.PLAYWRIGHT_PACKAGE ? pathToFileURL(process.env.PLAYWRIGHT_PACKAGE).href : "playwright");
 const root = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 const mime = { ".js": "text/javascript", ".mjs": "text/javascript", ".html": "text/html", ".css": "text/css" };
-const avatarSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" fill="#285b8a"/><circle cx="64" cy="64" r="42" fill="#e9b35a"/></svg>';
+const avatarSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="#285b8a"/><circle cx="256" cy="256" r="190" fill="#e9b35a"/></svg>';
 const server = createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
@@ -87,6 +87,13 @@ try {
   assert.match(initialCSS, /#3399cc/);
   assert.doesNotMatch(initialCSS, /data-speaking/, "Discord does not provide VDO voice activity");
   assert.ok(new URL(initialURL).searchParams.get("avatar").startsWith("data:image/webp;base64,"), "Avatar sem CORS vira uma imagem autossuficiente");
+  const preparedDimensions = await page.evaluate(async src => {
+    const img = new Image();
+    img.src = src;
+    await img.decode();
+    return [img.naturalWidth, img.naturalHeight];
+  }, new URL(initialURL).searchParams.get("avatar"));
+  assert.ok(preparedDimensions[0] >= 384 && preparedDimensions[1] >= 384, "Avatar de alta resolução não pode encolher indevidamente");
   assert.ok(initialURL.length < 8000);
   assert.equal(await page.locator('[name="Câmera padrão"], [name="Interface VDO"], [name="Self-preview"]').count(), 0);
   await dockTab(page, "window");
