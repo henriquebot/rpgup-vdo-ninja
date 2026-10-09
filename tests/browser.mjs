@@ -31,21 +31,11 @@ const screenshotDirectory = path.join(root, "test-results");
 await mkdir(screenshotDirectory, { recursive: true });
 async function dockTab(page, key) { await page.locator(`#rpgup-dock-tab-${key}`).click(); }
 async function worldTab(page, key) { await page.locator(`#rpgup-world-tab-${key}`).click(); }
-async function openQuickMenu(page) {
-  const trigger = page.getByRole("button", { name: "Opções do RPGUP VDO.Ninja", exact: true });
-  if (await trigger.getAttribute("aria-expanded") === "false") await trigger.click();
-}
-async function dockAction(page, name) {
-  await openQuickMenu(page);
-  await page.locator(".rpgup-vdo-quick-menu").getByRole("menuitem", { name, exact: true }).click();
-}
 async function openSettings(page) {
-  const dock = await page.locator("#rpgup-vdo-room").getAttribute("data-dock");
-  if (dock !== "floating") {
-    if (await page.locator("#rpgup-vdo-settings").isHidden()) await dockAction(page, "Configurações da dock");
-  } else {
-    const button = page.locator(".window-header [data-action=toggleModuleSettings]");
-    if (await button.getAttribute("aria-expanded") === "false") await button.click();
+  if (await page.locator("#rpgup-vdo-settings").count() === 0 ||
+      await page.locator("#rpgup-vdo-settings").isHidden()) {
+    await page.getByRole("button", { name: "Opções VDO.Ninja", exact: true }).click();
+    await page.locator("#rpgup-vdo-settings").waitFor({ state: "visible" });
   }
 }
 try {
@@ -68,20 +58,22 @@ try {
   assert.equal(await page.locator(".window-header [data-action=undock]").count(), 1);
   assert.equal(await page.locator(".window-header [data-action=reloadRoom]").count(), 1);
   assert.equal(await page.locator("#rpgup-vdo-room > .window-header").isVisible(), false, "Dock não mostra barra de título");
-  assert.equal(await page.locator(".rpgup-vdo-quick-controls").isVisible(), true, "Botão único no canvas");
+  assert.equal(await page.locator(".rpgup-vdo-quick-controls").count(), 0, "Não inserir engrenagem no canvas");
+  assert.equal(await page.getByRole("button", { name: "Opções VDO.Ninja", exact: true }).count(), 1, "Segundo botão na aba Configurações");
+  assert.equal(await page.locator(".rpgup-open-dock").getAttribute("aria-pressed"), "true", "Dock inicia aberta");
+  const closedHost = await page.locator(".rpgup-frame-host").boundingBox();
+  assert.ok(closedHost.height >= 560, "Controles escondidos deixam a sala ocupar toda a janela");
   const initialLoads = navigations;
   const roomBeforeReload = await page.locator("iframe").getAttribute("src");
   await page.evaluate(() => { globalThis.sameWorld = true; globalThis.originalFrame = document.querySelector("iframe"); });
-  await dockAction(page, "Recarregar sala VDO");
+  await openSettings(page);
+  await page.getByRole("button", { name: "Recarregar sala VDO", exact: true }).click();
   await page.waitForFunction(() => document.querySelector("iframe").contentWindow !== null);
   await page.locator("iframe").contentFrame().locator("p").waitFor();
   assert.equal(navigations, initialLoads + 1, "Reload navega só o iframe uma vez");
   assert.equal(await page.locator("iframe").getAttribute("src"), roomBeforeReload);
   assert.equal(await page.evaluate(() => sameWorld && originalFrame === document.querySelector("iframe")), true);
   assert.equal(await page.locator(".window-header [data-action=toggleModuleSettings]").innerText(), "");
-  const closedHost = await page.locator(".rpgup-frame-host").boundingBox();
-  assert.ok(closedHost.height >= 560, "Controles escondidos deixam a sala ocupar toda a janela");
-  await openSettings(page);
   await page.locator(".rpgup-status").filter({ hasText: "Documento do iframe" }).waitFor();
   assert.equal(await page.locator("iframe").count(), 1);
   assert.equal(await page.locator('#rpgup-dock-tab-connect').getAttribute("aria-selected"), "true");
@@ -126,10 +118,30 @@ try {
     assert.ok(geometry.width >= 320 && geometry.height >= 240);
     assert.ok(geometry.x >= 0 && geometry.y >= 0 && geometry.x + geometry.width <= 1440 && geometry.y + geometry.height <= 900);
     const iface = await page.locator("#interface").boundingBox();
-    if (dock === "left") assert.ok(iface.x >= geometry.x + geometry.width);
-    if (dock === "right") assert.ok(iface.x + iface.width <= geometry.x);
-    if (dock === "top") assert.ok(iface.y >= geometry.y + geometry.height);
-    if (dock === "bottom") assert.ok(iface.y + iface.height <= geometry.y);
+    if (dock === "left") {
+      assert.equal(geometry.x, 0);
+      assert.equal(geometry.y, 0);
+      assert.equal(geometry.height, 900);
+      assert.ok(iface.x >= geometry.x + geometry.width, "Canvas após dock esquerda");
+    }
+    if (dock === "right") {
+      assert.equal(geometry.x + geometry.width, 1440);
+      assert.equal(geometry.y, 0);
+      assert.equal(geometry.height, 900);
+      assert.ok(iface.x + iface.width <= geometry.x);
+    }
+    if (dock === "top") {
+      assert.equal(geometry.x, 0);
+      assert.equal(geometry.y, 0);
+      assert.equal(geometry.width, 1440);
+      assert.ok(iface.y >= geometry.y + geometry.height);
+    }
+    if (dock === "bottom") {
+      assert.equal(geometry.x, 0);
+      assert.equal(geometry.y + geometry.height, 900);
+      assert.equal(geometry.width, 1440);
+      assert.ok(iface.y + iface.height <= geometry.y);
+    }
     if (dock === "floating") assert.equal(iface.width, 1440);
   }
   await page.evaluate(async () => { await game.modules.get("rpgup-vdo-ninja").api.openDock(); await game.modules.get("rpgup-vdo-ninja").api.openDock(); });
@@ -137,9 +149,9 @@ try {
   assert.equal(navigations, initial, "Dock/rerender não deve navegar ou recriar o iframe");
   assert.ok(await page.evaluate(async () => (await fixture.dock()).frontCount >= 3), "Reabrir chama bringToFront sem recarregar a sala");
   await page.getByRole("combobox", { name: "Posição do dock", exact: true }).selectOption("left");
-  await dockAction(page, "Desacoplar janela");
+  await page.getByRole("combobox", { name: "Posição do dock", exact: true }).selectOption("floating");
   assert.equal(await page.locator("#rpgup-vdo-room > .window-header").isVisible(), true, "Janela flutuante recupera cabeçalho");
-  assert.equal(await page.locator(".rpgup-vdo-quick-controls").isVisible(), false, "Controles fora da janela escondidos no modo flutuante");
+  assert.equal(await page.locator(".rpgup-vdo-quick-controls").count(), 0);
   assert.equal(await page.getByRole("combobox", { name: "Posição do dock", exact: true }).inputValue(), "floating");
   assert.equal(navigations, initial, "Desacoplar não deve recarregar a sala");
   await page.getByRole("button", { name: "Diminuir zoom", exact: true }).click();
@@ -411,10 +423,26 @@ try {
     await (await fixture.dock()).close();
     Hooks.callAll("renderSettings", {}, document.querySelector("#settings"));
   });
-  assert.equal(await autoPage.getByRole("button", { name: "Câmeras VDO.Ninja", exact: true }).count(), 1);
-  await autoPage.getByRole("button", { name: "Câmeras VDO.Ninja", exact: true }).click();
+  const cameras = autoPage.getByRole("button", { name: "Câmeras VDO.Ninja", exact: true });
+  const options = autoPage.getByRole("button", { name: "Opções VDO.Ninja", exact: true });
+  assert.equal(await cameras.count(), 1);
+  assert.equal(await options.count(), 1);
+  await cameras.click();
   await autoPage.waitForFunction(() => document.querySelector("iframe"));
-  console.log("Reload isolado conserva Foundry, sala, IDs e rascunhos; botão da sidebar reabre sem duplicar: OK.");
+  assert.equal(await cameras.getAttribute("aria-pressed"), "true");
+  await cameras.click();
+  await autoPage.waitForFunction(() => !document.querySelector("#rpgup-vdo-room"));
+  assert.equal(await autoPage.locator("iframe").count(), 0, "Fechar dock fecha o iframe VDO");
+  assert.equal(await cameras.getAttribute("aria-pressed"), "false");
+  await options.click();
+  await autoPage.waitForFunction(() => document.querySelector("#rpgup-vdo-settings:not([hidden])"));
+  assert.equal(await autoPage.locator("iframe").count(), 1, "Opções abre dock fechada uma única vez");
+  await cameras.click();
+  await autoPage.waitForFunction(() => !document.querySelector("#rpgup-vdo-room"));
+  await cameras.click();
+  await autoPage.waitForFunction(() => document.querySelector("iframe"));
+  assert.equal(await autoPage.locator("iframe").count(), 1);
+  console.log("Botão Câmeras alterna abrir/fechar; segundo botão abre opções; iframe único: OK.");
 
   // Closing during image preparation must cancel the old connection, while an
   // immediate reopen can start its own image fetch and create exactly one frame.
