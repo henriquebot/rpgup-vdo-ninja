@@ -33,8 +33,8 @@ export function registerSettings(RoomDock, WorldConfig, onChange) {
     type: Object, default: structuredClone(DEFAULT_WORLD), onChange
   });
   game.settings.registerMenu(MODULE_ID, "worldConfig", {
-    name: "RPGUP VDO.Ninja — Configurar mesa", label: "Configurar mesa",
-    hint: "Room, participantes, avatares da mesa, qualidade e links OBS. Somente o GM altera a configuração compartilhada.",
+    name: "RPGUP VDO.Ninja — Opções", label: "Opções VDO.Ninja",
+    hint: "Mestre: configurações compartilhadas e pessoais. Jogadores: conexão, janela, avatar e ajuda. Dados compartilhados são exclusivos do mestre.",
     icon: "fas fa-video", type: WorldConfig, restricted: true
   });
   game.settings.registerMenu(MODULE_ID, "openDock", {
