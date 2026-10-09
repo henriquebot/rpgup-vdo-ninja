@@ -14,13 +14,21 @@ export const VDO_BASE = "https://vdo.ninja/";
 export const DOCKS = { left: "Esquerda", right: "Direita", top: "Topo", bottom: "Embaixo", floating: "Flutuante" };
 export const AVATARS = { foundry: "Avatar Foundry / da mesa", custom: "Imagem por URL", none: "Sem placeholder" };
 export const ROOM_LAYOUTS = { native: "Padrão VDO.Ninja", compact: "Compacto / preencher espaço" };
+export const CAMERA_THEMES = {
+  none: "Sem bordas / VDO original",
+  scifi: "Sci-fi",
+  modern: "Moderno · discreto",
+  neon: "Neon",
+  rustic: "Rústico",
+  fantasy: "Fantástico"
+};
 export const QUALITY_PRESETS = {
   native: { label: "Automático · VDO.Ninja", help: "Mantém a qualidade adaptativa do VDO. Nenhum limite adicional é imposto pelo módulo.", params: {} },
   economy: { label: "Economia · 200 kbps", help: "Limita cada vídeo enviado aos outros jogadores a 200 kbps e captura a até 20 fps. Útil em conexões ou computadores modestos.", params: { roombitrate: "200", maxframerate: "20" } },
   balanced: { label: "Equilibrado · 500 kbps", help: "Limita cada vídeo enviado aos jogadores a 500 kbps e captura a até 30 fps. A qualidade efetiva é adaptativa.", params: { roombitrate: "500", maxframerate: "30" } },
   detail: { label: "Mais detalhe · 1.200 kbps", help: "Permite até 1.200 kbps por vídeo para jogadores e captura a até 30 fps. O orçamento da Room e a conexão ainda limitam a qualidade; pode exigir ajuste pelo Director.", params: { roombitrate: "1200", maxframerate: "30" } }
 };
-export const DEFAULT_WORLD = { roomId: "", extraQuery: "", audio: "discord", directorUserId: "", slots: {}, quality: "native", avatars: {}, roomLayout: "native" };
+export const DEFAULT_WORLD = { roomId: "", extraQuery: "", audio: "discord", directorUserId: "", slots: {}, quality: "native", avatars: {}, roomLayout: "native", theme: "modern" };
 export const DEFAULT_PREFS = {
   dock: "left", autoOpen: true,
   zoom: 1, avatar: "foundry", avatarURL: "",
@@ -73,6 +81,8 @@ export function validateWorld(input, users = []) {
   if (!Object.hasOwn(QUALITY_PRESETS, quality)) throw new Error("Preset de qualidade inválido.");
   const roomLayout = input.roomLayout ?? "native";
   if (!Object.hasOwn(ROOM_LAYOUTS, roomLayout)) throw new Error("Layout da Room inválido.");
+  const theme = input.theme ?? DEFAULT_WORLD.theme;
+  if (!Object.hasOwn(CAMERA_THEMES, theme)) throw new Error("Tema visual das câmeras inválido.");
   const avatars = {};
   if (input.avatars !== undefined && (!input.avatars || typeof input.avatars !== "object" || Array.isArray(input.avatars))) throw new Error("Associação de avatares inválida.");
   for (const [userId, image] of Object.entries(input.avatars ?? {})) {
@@ -83,7 +93,7 @@ export function validateWorld(input, users = []) {
     if (!["http:", "https:"].includes(source.protocol) || source.username || source.password) throw new Error(`Avatar de ${userId}: use um caminho Foundry ou URL HTTP/HTTPS sem credenciais.`);
     avatars[userId] = image.trim();
   }
-  return { roomId, extraQuery: input.extraQuery.trim(), audio: input.audio, directorUserId, slots, quality, avatars, roomLayout };
+  return { roomId, extraQuery: input.extraQuery.trim(), audio: input.audio, directorUserId, slots, quality, avatars, roomLayout, theme };
 }
 
 export function fillMissingSlots(slots, users, randomBytes = size => crypto.getRandomValues(new Uint8Array(size))) {
