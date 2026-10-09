@@ -1,4 +1,5 @@
 import { VDO_BASE, QUALITY_PRESETS, parseExtraQuery, validateWorld, normalizePrefs } from "./config.js";
+import { themeCSS, encodeThemeCSS } from "./theme.js";
 
 function configuredURL(world, users) {
   const config = validateWorld(world, users);
@@ -42,6 +43,14 @@ export function participantURL(world, user, prefs = {}, users = [user], baseURL 
   if (!streamId) throw new Error("O GM ainda não associou um Stream ID ao seu usuário.");
   url.searchParams.set("push", streamId);
   url.searchParams.set("label", user.name);
+  // Label is already the Foundry username; showlabels makes it visible on each tile.
+  url.searchParams.set("showlabels", "rounded");
+  const css = themeCSS(config, users);
+  if (css) url.searchParams.set("base64css", encodeThemeCSS(css));
+  if (config.theme !== "none" && config.audio === "vdo") {
+    // Includes VDO data-speaking attributes for a restrained speaking outline.
+    url.searchParams.set("meterstyle", "3");
+  }
   if (config.directorUserId === user.id && user.isGM) {
     url.searchParams.set("director", config.roomId);
     url.searchParams.set("showdirector", "1");
