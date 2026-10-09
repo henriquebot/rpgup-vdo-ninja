@@ -87,6 +87,7 @@ try {
   assert.match(initialCSS, /#3399cc/);
   assert.doesNotMatch(initialCSS, /data-speaking/, "Discord does not provide VDO voice activity");
   assert.ok(new URL(initialURL).searchParams.get("avatar").startsWith("data:image/webp;base64,"), "Avatar sem CORS vira uma imagem autossuficiente");
+  assert.ok(new URL(initialURL).searchParams.get("avatar")?.startsWith("data:image/webp;base64,"), "Mesmo com limite de URL, avatar deve continuar embutido");
   const preparedDimensions = await page.evaluate(async src => {
     const img = new Image();
     img.src = src;
@@ -94,7 +95,7 @@ try {
     return [img.naturalWidth, img.naturalHeight];
   }, new URL(initialURL).searchParams.get("avatar"));
   assert.ok(preparedDimensions[0] >= 384 && preparedDimensions[1] >= 384, "Avatar de alta resolução não pode encolher indevidamente");
-  assert.ok(initialURL.length < 26000, "URL com avatar nítido e CSS ainda tem limite de segurança");
+  assert.ok(initialURL.length <= 6900, "Nunca enviar request URI grande o bastante para o nginx responder 414");
   assert.equal(await page.locator('[name="Câmera padrão"], [name="Interface VDO"], [name="Self-preview"]').count(), 0);
   await dockTab(page, "window");
   assert.match(await page.getByRole("checkbox").getAttribute("title"), /não liga sua câmera/);
@@ -230,7 +231,7 @@ try {
   assert.equal(director.searchParams.get("maxframerate"), "20");
   assert.equal(director.searchParams.get("cover"), "");
   assert.equal(director.searchParams.get("showlabels"), "rounded");
-  assert.equal(director.searchParams.get("meterstyle"), "3");
+  assert.equal(director.searchParams.get("meterstyle"), "4");
   assert.match(decodeURIComponent(atob(director.searchParams.get("base64css"))), /data-speaking="2"/);
   assert.equal(director.searchParams.has("structure"), false);
   await page.evaluate(() => { globalThis.layoutFrame = document.querySelector("iframe"); });
