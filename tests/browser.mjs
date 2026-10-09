@@ -451,6 +451,8 @@ try {
   await autoPage.waitForFunction(() => !document.querySelector("#rpgup-vdo-world-config"));
   assert.equal(await autoPage.locator("iframe").count(), 0, "Segundo clique fecha apenas opções");
   await cameras.click();
+  await autoPage.waitForFunction(() => document.querySelector("iframe"));
+  await cameras.click();
   await autoPage.waitForFunction(() => !document.querySelector("#rpgup-vdo-room"));
   await cameras.click();
   await autoPage.waitForFunction(() => document.querySelector("iframe"));
