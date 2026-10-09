@@ -2,7 +2,7 @@
 
 Interface Foundry VTT **v13/v14** para uma **Room oficial VDO.Ninja**. Um iframe local por cliente, Stream IDs estáveis configurados pelo GM e um dock ApplicationV2 próprio. O jogador usa os controles nativos do VDO.Ninja para ativar a câmera e participar.
 
-**Versão de produção: 1.0.7.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
+**Versão de produção: 1.0.8.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
 
 A arquitetura vigente está em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). A proposta anterior foi preservada, sem alterações, em [docs/ARCHITECTURE-OLD-MEDIAMTX.md](docs/ARCHITECTURE-OLD-MEDIAMTX.md) **apenas como histórico superado**.
 
@@ -95,3 +95,10 @@ No iframe dos participantes, a URL inclui o parâmetro oficial `hideheader`, rem
 A janela acoplada agora toca as bordas da tela: sem os vãos anteriores de 8px nas laterais/topo/rodapé ou os 16px extras de reserva na interface. O modo flutuante preserva sua margem externa.
 
 Removido o botão de engrenagem flutuando sobre o canvas. Na **aba Configurações** do Foundry, **Câmeras VDO.Ninja** passa a ser um botão alternador: clique para abrir, clique novamente para fechar. **Opções VDO.Ninja** é um segundo botão nessa mesma área, que abre as opções da dock (e a própria dock se estiver fechada), sem reconectar a câmera ativa. A ação **Recarregar sala VDO** também fica dentro dessas opções; configurações permitem continuar mudando entre dock e janela flutuante. No modo flutuante, a barra de título nativa permanece.
+
+
+## Janela única de configurações (1.0.8)
+
+A janela **RPGUP VDO.Ninja — Configurações** reúne as guias de sala, participantes, aparência e parâmetros avançados (visíveis somente ao GM) com as guias pessoais **Conexão**, **Janela**, **Avatar** e **Ajuda** (disponíveis para todos os usuários). A dock acoplada ficou apenas com o vídeo e controles nativos do VDO, sem opções que roubem espaço das câmeras. **Opções VDO.Ninja**, na aba Configurações do Foundry, abre e fecha a janela única, sem abrir ou reconectar a dock. **Câmeras VDO.Ninja** continua abrindo/fechando somente a dock. No modo flutuante, o botão de opções na barra de título também abre/fecha a mesma janela.
+
+Preferências pessoais continuam como flags do usuário Foundry. Alterar posição e zoom não interrompe a chamada. Atualizações de avatar ou configurações compartilhadas só entram na chamada ao usar **Aplicar / reconectar** na nova guia Conexão. O mestre continua sendo o único autorizado a salvar Room, participantes, links OBS e configurações do mundo; jogadores visualizam somente guias pessoais.

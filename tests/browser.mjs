@@ -29,20 +29,18 @@ let browser;
 let navigations = 0;
 const screenshotDirectory = path.join(root, "test-results");
 await mkdir(screenshotDirectory, { recursive: true });
-async function dockTab(page, key) { await page.locator(`#rpgup-dock-tab-${key}`).click(); }
-async function worldTab(page, key) { await page.locator(`#rpgup-world-tab-${key}`).click(); }
 async function openSettings(page) {
-  if (await page.locator("#rpgup-vdo-settings").count() &&
-      await page.locator("#rpgup-vdo-settings").isVisible()) return;
-  // A floating window can physically cover the sidebar on a small screen.
-  // Use its native header in this layout, and the new sidebar action when docked.
-  const dock = await page.locator("#rpgup-vdo-room").getAttribute("data-dock");
-  if (dock === "floating") {
-    await page.locator("#rpgup-vdo-room > .window-header [data-action=toggleModuleSettings]").click();
-  } else {
-    await page.getByRole("button", { name: "Opções VDO.Ninja", exact: true }).click();
-  }
-  await page.locator("#rpgup-vdo-settings").waitFor({ state: "visible" });
+  if (await page.locator("#rpgup-vdo-world-config").count()) return;
+  await page.evaluate(() => game.modules.get("rpgup-vdo-ninja").api.toggleOptions());
+  await page.locator("#rpgup-vdo-world-config").waitFor({ state: "visible" });
+}
+async function dockTab(page, key) {
+  await openSettings(page);
+  await page.locator(`#rpgup-world-tab-${key}`).click();
+}
+async function worldTab(page, key) {
+  await openSettings(page);
+  await page.locator(`#rpgup-world-tab-${key}`).click();
 }
 try {
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}) });
@@ -58,7 +56,7 @@ try {
   page.on("pageerror", error => errors.push(error.message));
   await page.goto(base + "/tests/harness.html");
   await page.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
-  assert.equal(await page.locator("#rpgup-vdo-settings").isVisible(), false);
+  assert.equal(await page.locator("#rpgup-vdo-world-config").count(), 0);
   assert.equal(await page.locator("#rpgup-vdo-room").getAttribute("data-dock"), "left", "Novo usuário começa com dock à esquerda");
   assert.equal(await page.locator(".window-header [data-action=toggleModuleSettings]").count(), 1);
   assert.equal(await page.locator(".window-header [data-action=undock]").count(), 1);
@@ -73,6 +71,7 @@ try {
   const roomBeforeReload = await page.locator("iframe").getAttribute("src");
   await page.evaluate(() => { globalThis.sameWorld = true; globalThis.originalFrame = document.querySelector("iframe"); });
   await openSettings(page);
+  await dockTab(page, "connect");
   await page.getByRole("button", { name: "Recarregar sala VDO", exact: true }).click();
   await page.waitForFunction(() => document.querySelector("iframe").contentWindow !== null);
   await page.locator("iframe").contentFrame().locator("p").waitFor();
@@ -80,16 +79,16 @@ try {
   assert.equal(await page.locator("iframe").getAttribute("src"), roomBeforeReload);
   assert.equal(await page.evaluate(() => sameWorld && originalFrame === document.querySelector("iframe")), true);
   assert.equal(await page.locator(".window-header [data-action=toggleModuleSettings]").innerText(), "");
-  await page.locator(".rpgup-status").filter({ hasText: "Documento do iframe" }).waitFor();
+  await page.locator("iframe").contentFrame().locator("p").waitFor();
   assert.equal(await page.locator("iframe").count(), 1);
-  assert.equal(await page.locator('#rpgup-dock-tab-connect').getAttribute("aria-selected"), "true");
-  assert.equal(await page.locator('#rpgup-dock-tab-window').innerText(), "", "Guias usam apenas ícones");
-  assert.equal(await page.locator('[role="tab"][aria-selected="true"]').count(), 1);
-  await page.getByRole("button", { name: "Iniciar tour guiado" }).first().click();
-  assert.match(await page.locator("#rpgup-vdo-settings .rpgup-tour").innerText(), /Configurar mesa/);
-  await page.locator("#rpgup-vdo-settings .rpgup-tour-next").click();
-  await page.locator("#rpgup-vdo-settings .rpgup-tour-close").click();
-  assert.equal(await page.locator("#rpgup-vdo-settings .rpgup-tour").isVisible(), false);
+  assert.equal(await page.locator('#rpgup-world-tab-connect').getAttribute("aria-selected"), "true");
+  assert.equal(await page.locator('#rpgup-world-tab-window').innerText(), "", "Guias usam apenas ícones");
+  assert.equal(await page.locator('#rpgup-vdo-world-config [role="tab"][aria-selected="true"]').count(), 1);
+  await page.locator("#rpgup-vdo-world-config [aria-label='Iniciar tour guiado']").click();
+  assert.match(await page.locator("#rpgup-vdo-world-config .rpgup-tour").innerText(), /sala/i);
+  await page.locator("#rpgup-vdo-world-config .rpgup-tour-next").click();
+  await page.locator("#rpgup-vdo-world-config .rpgup-tour-close").click();
+  assert.equal(await page.locator("#rpgup-vdo-world-config .rpgup-tour").isVisible(), false);
   await page.screenshot({ path: path.join(screenshotDirectory, "dock-settings-desktop.png") });
   const initial = navigations;
   const initialURL = await page.locator("iframe").getAttribute("src");
@@ -112,7 +111,7 @@ try {
   assert.ok(initialURL.length <= 6900, "Nunca enviar request URI grande o bastante para o nginx responder 414");
   assert.equal(await page.locator('[name="Câmera padrão"], [name="Interface VDO"], [name="Self-preview"]').count(), 0);
   await dockTab(page, "window");
-  assert.match(await page.getByRole("checkbox").getAttribute("title"), /não liga sua câmera/);
+  assert.match(await page.getByRole("checkbox").getAttribute("title"), /não liga sua câmera/i);
   await dockTab(page, "avatar");
   assert.match(await page.getByRole("combobox", { name: "Placeholder", exact: true }).getAttribute("data-tooltip"), /cada sessão/);
   await dockTab(page, "window");
@@ -171,9 +170,9 @@ try {
   await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(previous => document.querySelector("iframe").src !== previous, initialURL);
-  await page.locator(".rpgup-status").filter({ hasText: "Documento do iframe" }).waitFor();
+  await page.locator("iframe").contentFrame().locator("p").waitFor();
   assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.has("view"), false);
-  await page.getByRole("button", { name: "Configurar mesa", exact: true }).click();
+  await worldTab(page, "general");
   await page.locator(".rpgup-config-form").waitFor();
   assert.equal(await page.locator("#rpgup-world-tab-general").getAttribute("aria-selected"), "true");
   await worldTab(page, "appearance");
@@ -257,6 +256,7 @@ try {
   assert.equal(new URL(appliedURL).searchParams.has("mobile"), false);
   assert.equal(await page.evaluate(async () => (await fixture.dock()).prefs.avatarURL), "https://images.example/avatar.webp");
   await page.evaluate(() => fixture.closeConfig());
+  await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(() => document.querySelector("iframe").allow.includes("microphone"));
   const director = new URL(await page.locator("iframe").getAttribute("src"));
@@ -286,7 +286,7 @@ try {
   assert.equal(await page.locator("iframe").count(), 1);
   await page.reload();
   await page.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
-  assert.equal(await page.locator("#rpgup-vdo-settings").isVisible(), false);
+  assert.equal(await page.locator("#rpgup-vdo-world-config").count(), 0);
   await openSettings(page);
   await dockTab(page, "window");
   assert.equal(await page.getByRole("combobox", { name: "Posição do dock", exact: true }).inputValue(), "floating");
@@ -304,14 +304,15 @@ try {
   guest.on("pageerror", error => guestErrors.push(error.message));
   await guest.goto(base + "/tests/harness.html?user=p1");
   await guest.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
-  assert.equal(await guest.getByRole("button", { name: "Configurar mesa", exact: true }).count(), 0);
+  await openSettings(guest);
+  assert.equal(await guest.locator("#rpgup-world-tab-general").count(), 0, "Jogador não recebe configuração de Room");
+  assert.equal(await guest.locator("#rpgup-world-tab-participants").count(), 0, "Jogador não recebe links e slots");
+  assert.equal(await guest.locator("#rpgup-world-tab-connect").count(), 1);
   assert.equal(new URL(await guest.locator("iframe").getAttribute("src")).searchParams.get("push"), "slot_a");
   assert.ok(new URL(await guest.locator("iframe").getAttribute("src")).searchParams.get("avatar").startsWith("data:image/"));
   assert.equal(await guest.locator('[name="Self-preview"]').count(), 0);
-  const denied = await guest.evaluate(async () => {
-    try { await fixture.menu("worldConfig"); return false; } catch (error) { return error.message.includes("GM"); }
-  });
-  assert.equal(denied, true);
+  await guest.evaluate(() => fixture.menu("worldConfig"));
+  assert.equal(await guest.locator("#rpgup-world-tab-general").count(), 0, "Menu de opções não concede permissões de GM");
   assert.deepEqual(guestErrors, []);
   console.log("Jogador: slot automático, preferências separadas e configuração GM negada: OK.");
 
@@ -321,7 +322,7 @@ try {
   await guest.reload();
   await guest.waitForFunction(() => globalThis.fixtureReady);
   assert.equal(await guest.locator("iframe").count(), 0);
-  assert.match(await guest.locator(".rpgup-status").innerText(), /GM ainda não associou/);
+  assert.match(await guest.locator(".rpgup-connection-alert").innerText(), /GM ainda não associou/);
   await page.evaluate(() => fixture.menu("worldConfig"));
   await worldTab(page, "participants");
   await page.getByRole("button", { name: "Gerar e salvar slots faltantes", exact: true }).click();
@@ -351,6 +352,7 @@ try {
   console.log("Regressão: gerar/salvar sincroniza GM e jogador; rascunho sobrevive; reconectar/recarregar preserva IDs: OK.");
 
   await page.evaluate(() => fixture.menu("worldConfig"));
+  await worldTab(page, "participants");
   await page.getByRole("textbox", { name: "Stream ID de Jogador B", exact: true }).fill("unsaved_b");
   await page.evaluate(() => fixture.setConfig({ ...fixture.config(), roomId: "OtherGMRoom" }));
   await page.getByRole("button", { name: "Salvar configuração", exact: true }).click();
@@ -359,6 +361,7 @@ try {
   assert.equal(await page.getByRole("textbox", { name: "Stream ID de Jogador B", exact: true }).inputValue(), "unsaved_b");
   await page.evaluate(() => fixture.closeConfig());
   await page.evaluate(() => fixture.menu("worldConfig"));
+  await worldTab(page, "participants");
   await page.getByRole("textbox", { name: "Stream ID de Jogador B", exact: true }).fill("");
   await page.evaluate(() => { fixture.failSave = true; });
   await page.getByRole("button", { name: "Gerar e salvar slots faltantes", exact: true }).click();
@@ -369,6 +372,7 @@ try {
   console.log("Conflito entre GMs e gravação recusada: sem falso sucesso nem perda do rascunho: OK.");
 
   await page.evaluate(() => fixture.menu("worldConfig"));
+  await worldTab(page, "participants");
   await page.getByRole("textbox", { name: "Stream ID de Jogador B", exact: true }).fill("membership_draft");
   await page.evaluate(() => {
     const user = { id: "replacement", name: "Jogador criado depois", isGM: false };
@@ -388,7 +392,7 @@ try {
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(() => notices.some(notice => notice.value.includes("HTTP 404")));
   assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar"), "default");
-  assert.match(await page.locator(".rpgup-avatar-status").innerText(), /não aplicado/);
+  assert.ok(await page.evaluate(() => notices.some(notice => notice.value.includes("Placeholder personalizado não aplicado"))));
   await dockTab(page, "avatar");
   await page.getByRole("textbox", { name: "URL do placeholder", exact: true }).fill("file:///invalid-avatar.svg");
   await dockTab(page, "connect");
@@ -407,7 +411,7 @@ try {
   await page.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
   assert.ok(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar")?.startsWith("data:image/webp;base64,"), "Avatar is regenerated after reload within current URL budget");
   assert.ok((await page.locator("iframe").getAttribute("src")).length <= 6900, "Reloaded room must not generate 414");
-  assert.equal(await page.locator("#rpgup-vdo-settings").isVisible(), false);
+  assert.equal(await page.locator("#rpgup-vdo-world-config").count(), 0);
   assert.equal(await page.locator(".rpgup-director-help").isVisible(), false);
   console.log("Avatar Foundry sem CORS: miniatura aplicada e reaplicada após reload; erro de imagem tem aviso explícito: OK.");
 
@@ -441,8 +445,13 @@ try {
   assert.equal(await autoPage.locator("iframe").count(), 0, "Fechar dock fecha o iframe VDO");
   assert.equal(await cameras.getAttribute("aria-pressed"), "false");
   await options.click();
-  await autoPage.waitForFunction(() => document.querySelector("#rpgup-vdo-settings:not([hidden])"));
-  assert.equal(await autoPage.locator("iframe").count(), 1, "Opções abre dock fechada uma única vez");
+  await autoPage.waitForFunction(() => document.querySelector("#rpgup-vdo-world-config"));
+  assert.equal(await autoPage.locator("iframe").count(), 0, "Abrir opções não cria dock nem conexão VDO");
+  await options.click();
+  await autoPage.waitForFunction(() => !document.querySelector("#rpgup-vdo-world-config"));
+  assert.equal(await autoPage.locator("iframe").count(), 0, "Segundo clique fecha apenas opções");
+  await cameras.click();
+  await autoPage.waitForFunction(() => document.querySelector("iframe"));
   await cameras.click();
   await autoPage.waitForFunction(() => !document.querySelector("#rpgup-vdo-room"));
   await cameras.click();
@@ -490,7 +499,7 @@ try {
   }
   await page.setViewportSize({ width: 390, height: 640 });
   await openSettings(page);
-  await page.screenshot({ path: path.join(screenshotDirectory, "dock-settings-mobile.png") });
+  await page.screenshot({ path: path.join(screenshotDirectory, "unified-settings-mobile.png") });
   await page.evaluate(() => fixture.menu("worldConfig"));
   await page.screenshot({ path: path.join(screenshotDirectory, "world-obs-mobile.png") });
   const panelOverflow = await page.locator(".rpgup-config-form").evaluate(form => form.scrollWidth > form.clientWidth + 2);
@@ -510,7 +519,7 @@ try {
   await page.evaluate(async () => { await (await fixture.dock()).close(); });
   assert.equal(await page.locator("body").evaluate(node => node.classList.contains("rpgup-vdo-docked")), false);
   assert.equal(await page.locator("body").evaluate(node => node.style.getPropertyValue("--rpgup-vdo-left")), "");
-  console.log("Cabeçalho, tooltips, opções recolhidas, zoom, avatar, reserva da UI e resize pequeno: OK.");
+  console.log("Janela única, separação GM/jogador, posição, zoom, avatar, iframe e resize: OK.");
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));

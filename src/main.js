@@ -6,6 +6,9 @@ import { button, tooltip, report } from "./dom.js";
 
 export async function openDock() {
   const dock = new RoomDock();
+  // The singleton survives closing; recover preferences edited while closed
+  // from the user's latest saved flags before creating the new VDO iframe.
+  if (!dock.rendered) dock.prefs = userPrefs();
   await dock.render({ force: true });
   dock.bringToFront();
   syncDockButton();
@@ -24,10 +27,15 @@ export async function toggleDock() {
   return openDock();
 }
 
-async function openDockOptions() {
-  const dock = await openDock();
-  dock._showSettings();
-  return dock;
+export async function toggleOptions() {
+  const panel = new WorldConfig();
+  if (panel.rendered && panel.element?.isConnected) {
+    await panel.close();
+    return null;
+  }
+  await panel.render({ force: true });
+  panel.bringToFront();
+  return panel;
 }
 
 function syncDockButton() {
@@ -43,7 +51,7 @@ Hooks.once("init", () => {
     WorldConfig.instance?.configChanged();
     RoomDock.instance?.configChanged();
   });
-  game.modules.get(MODULE_ID).api = Object.freeze({ openDock, toggleDock });
+  game.modules.get(MODULE_ID).api = Object.freeze({ openDock, toggleDock, toggleOptions, dock: () => RoomDock.instance });
 });
 
 Hooks.once("ready", () => {
@@ -74,9 +82,9 @@ Hooks.on("renderSettings", (app, html) => {
 
   const options = tooltip(
     button("Opções VDO.Ninja", "fa-gear", { class: "rpgup-open-dock-options" }),
-    "Abrir as configurações da dock VDO.Ninja, sem reconectar uma chamada ativa."
+    "Abrir ou fechar a janela única de opções VDO.Ninja, sem reconectar a chamada."
   );
-  options.addEventListener("click", () => openDockOptions().catch(report));
+  options.addEventListener("click", () => toggleOptions().catch(report));
 
   (root.querySelector("section.settings") ?? root).append(open, options);
   syncDockButton();
