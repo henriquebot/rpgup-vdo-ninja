@@ -5,7 +5,6 @@ import { worldConfig, userPrefs, savePrefs } from "./settings.js";
 import { element, select, field, tooltip, panel, button, report } from "./dom.js";
 import { WorldConfig } from "./world-config.js";
 import { createIconTabs } from "./tabs.js";
-import { createDockQuickControls } from "./dock-quick-controls.js";
 
 const ApplicationV2 = foundry.applications.api.ApplicationV2;
 
@@ -65,14 +64,8 @@ export class RoomDock extends ApplicationV2 {
     this._settingsButton.setAttribute("aria-expanded", String(!this._settings.hidden));
   }
 
-  _ensureQuickControls() {
-    if (this._quickControls) return;
-    this._quickControls = createDockQuickControls({
-      settings: () => this._toggleSettings(),
-      reload: () => this._reloadRoom(),
-      undock: () => this._undock(),
-      close: () => { void this.close().catch(report); }
-    });
+  _showSettings() {
+    if (this._settings?.hidden) this._toggleSettings();
   }
 
   _undock() {
@@ -111,7 +104,11 @@ export class RoomDock extends ApplicationV2 {
       tooltip(configButton, "Configurar a sala da mesa, participantes, links OBS e entradas externas. Somente o GM pode editar.");
       actions.append(configButton);
     }
-    actions.append(reconnect);
+    const reload = tooltip(button("Recarregar sala VDO", "fa-rotate-right"),
+      "Recarregar a sala sem salvar rascunhos do mestre; reinicia sua câmera e conexão.");
+    reload.addEventListener("click", () => this._reloadRoom(), { signal: this._listeners.signal });
+    this._settingsReloadButton = reload;
+    actions.append(reload, reconnect);
     const settings = element("div", undefined, { class: "rpgup-toolbar rpgup-preferences" });
     const avatar = select(AVATARS, this.prefs.avatar, "Placeholder");
     const avatarURL = element("input", undefined, { type: "url", maxlength: "2048", placeholder: "https://…/imagem.webp", "aria-label": "URL do placeholder" });
@@ -211,7 +208,6 @@ export class RoomDock extends ApplicationV2 {
 
   async _onRender(context, options) {
     await super._onRender(context, options);
-    this._ensureQuickControls();
     this._layout();
     if (!this._observer) {
       this._observer = new ResizeObserver(() => this._zoomFrame());
@@ -227,7 +223,7 @@ export class RoomDock extends ApplicationV2 {
     if (this._connecting) return;
     this._connecting = true;
     this._reloadButton.disabled = true;
-    this._quickControls?.setReloadDisabled(true);
+    if (this._settingsReloadButton) this._settingsReloadButton.disabled = true;
     const signal = this._listeners.signal;
     try {
       if (saveDraft && game.user.isGM && WorldConfig.instance?.dirty) await WorldConfig.instance.saveDraft();
@@ -277,7 +273,6 @@ export class RoomDock extends ApplicationV2 {
       this._iframe.allow = "camera; autoplay; fullscreen; display-capture; picture-in-picture" + (world.audio === "vdo" ? "; microphone" : "");
       this._pending = false;
       this._settingsButton.classList.remove("rpgup-attention");
-      this._quickControls?.setAttention(false);
       tooltip(this._settingsButton, "Mostrar as guias de configuração, janela, imagem e ajuda. Câmera e PiP ficam no VDO.Ninja.");
       this._alert.hidden = true;
       this._activeURL = url;
@@ -288,7 +283,6 @@ export class RoomDock extends ApplicationV2 {
       if (!signal.aborted) {
         this._status.textContent = error.message;
         this._settingsButton?.classList.add("rpgup-attention");
-        this._quickControls?.setAttention(true);
         if (this._settingsButton) tooltip(this._settingsButton, error.message + " Abra as configurações para conferir.");
         this._alert.textContent = error.message;
         this._alert.hidden = Boolean(this._iframe);
@@ -298,7 +292,7 @@ export class RoomDock extends ApplicationV2 {
       if (this._listeners.signal === signal) {
         this._connecting = false;
         this._reloadButton.disabled = false;
-        this._quickControls?.setReloadDisabled(false);
+        if (this._settingsReloadButton) this._settingsReloadButton.disabled = false;
       }
     }
   }
@@ -312,8 +306,7 @@ export class RoomDock extends ApplicationV2 {
     }
     this._pending = true;
     this._settingsButton?.classList.add("rpgup-attention");
-    this._quickControls?.setAttention(true);
-    this._status.textContent = "Configuração alterada. Abra a engrenagem e clique em Aplicar / reconectar para usá-la (a câmera será desconectada).";
+    this._status.textContent = "Configuração alterada. Abra Opções VDO.Ninja na aba Configurações e clique em Aplicar / reconectar (a câmera será desconectada).";
     if (this._settingsButton) tooltip(this._settingsButton, this._status.textContent);
   }
 
@@ -325,7 +318,6 @@ export class RoomDock extends ApplicationV2 {
       const position = dockPosition(this.prefs, { width: window.innerWidth, height: window.innerHeight });
       this.setPosition(position);
       this._reserveInterface(position);
-      this._quickControls?.update(this.element.getBoundingClientRect(), this.prefs.dock);
       const side = ["left", "right"].includes(this.prefs.dock);
       this._size.disabled = this.prefs.dock === "floating";
       this._size.min = side ? "320" : "240";
@@ -371,7 +363,7 @@ export class RoomDock extends ApplicationV2 {
     const docked = this.prefs.dock !== "floating";
     document.body.classList.toggle("rpgup-vdo-docked", docked);
     for (const side of ["left", "right", "top", "bottom"]) {
-      const amount = docked && this.prefs.dock === side ? (["left", "right"].includes(side) ? position.width : position.height) + 16 : 0;
+      const amount = docked && this.prefs.dock === side ? (["left", "right"].includes(side) ? position.width : position.height) : 0;
       document.body.style.setProperty(`--rpgup-vdo-${side}`, `${amount}px`);
     }
   }
@@ -399,14 +391,13 @@ export class RoomDock extends ApplicationV2 {
     this._connecting = false;
     this._observer?.disconnect();
     this._observer = null;
-    this._quickControls?.destroy();
-    this._quickControls = null;
     document.body.classList.remove("rpgup-vdo-docked");
     for (const side of ["left", "right", "top", "bottom"]) document.body.style.removeProperty(`--rpgup-vdo-${side}`);
     // Removing the iframe closes its session/capture; reopening creates only one frame.
     this._iframe?.remove();
     this._iframe = this._root = this._status = this._resizeListener = null;
-    this._settings = this._alert = null;
+    this._settings = this._alert = this._settingsReloadButton = null;
+    document.querySelectorAll(".rpgup-open-dock").forEach(button => button.setAttribute("aria-pressed", "false"));
     this._activeURL = null;
   }
 }
