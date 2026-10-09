@@ -1,6 +1,10 @@
 import { VDO_BASE, QUALITY_PRESETS, parseExtraQuery, validateWorld, normalizePrefs } from "./config.js";
 import { themeCSS, encodeThemeCSS } from "./theme.js";
 
+// Nginx commonly rejects request-lines above ~8 KB. Leave room for URL
+// encoding, proxies, and future VDO parameters: NEVER navigate a longer URL.
+export const MAX_VDO_URL_LENGTH = 6900;
+
 function configuredURL(world, users) {
   const config = validateWorld(world, users);
   const url = new URL(VDO_BASE);
@@ -49,7 +53,7 @@ export function participantURL(world, user, prefs = {}, users = [user], baseURL 
   if (css) url.searchParams.set("base64css", encodeThemeCSS(css));
   if (config.theme !== "none" && config.audio === "vdo") {
     // Includes VDO data-speaking attributes for a restrained speaking outline.
-    url.searchParams.set("meterstyle", "3");
+    url.searchParams.set("meterstyle", "4");
   }
   if (config.directorUserId === user.id && user.isGM) {
     url.searchParams.set("director", config.roomId);
@@ -64,8 +68,39 @@ export function participantURL(world, user, prefs = {}, users = [user], baseURL 
     url.searchParams.set("audiodevice", "0");
     url.searchParams.set("noaudio", "");
   }
+  // Keep at least 2.5 KB available for the avatar before encoding it.
+  // If a very large world has too much per-player CSS, connectivity wins.
+  if (url.searchParams.has("base64css")) {
+    const withoutAvatar = new URL(url);
+    withoutAvatar.searchParams.delete("avatar");
+    if (withoutAvatar.href.length > MAX_VDO_URL_LENGTH - 2500) {
+      url.searchParams.delete("base64css");
+      url.searchParams.delete("meterstyle");
+    }
+  }
+  // Last-resort protection for legacy/external links with unbounded avatars.
+  // The dock and export normally resize images *before* invoking this method.
+  if (url.href.length > MAX_VDO_URL_LENGTH) {
+    url.searchParams.delete("base64css");
+    url.searchParams.delete("meterstyle");
+  }
+  if (url.href.length > MAX_VDO_URL_LENGTH) {
+    url.searchParams.delete("avatar");
+    url.searchParams.set("avatar", "default");
+  }
+  if (url.href.length > MAX_VDO_URL_LENGTH) {
+    throw new Error("URL de entrada VDO excede o limite seguro; reduza parâmetros avançados.");
+  }
   // Camera, mobile detection and self-preview are controlled only by the native VDO UI.
   return url.href;
+}
+
+// Query-safe avatar budget for this specific world, including stream name,
+// audio, room parameters and actual theme CSS. Both embedded and external links
+// use the SAME budget so a GM cannot copy a link that would trigger nginx 414.
+export function avatarURLBudget(world, user, prefs = {}, users = [user], baseURL = globalThis.location?.href) {
+  const baseline = participantURL(world, user, prefs, users, baseURL, null);
+  return Math.max(0, Math.min(5800, MAX_VDO_URL_LENGTH - baseline.length - "&avatar=".length - 150));
 }
 
 export function soloURL(world, userId, users = []) {
