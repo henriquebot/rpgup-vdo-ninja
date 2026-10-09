@@ -52,7 +52,11 @@ export function createPersonalTabs() {
   }
   reconnect.addEventListener("click", () => {
     connectionStatus.textContent = "Aplicando preferências e reconectando a sala…";
-    void withDock(async dock => { await dock._connect(); connectionStatus.textContent = "Reconexão solicitada. Ative sua câmera no VDO.Ninja."; }).catch(error => { connectionStatus.textContent = String(error.message ?? error); report(error); });
+    void withDock(async dock => {
+      await dock._connect();
+      refreshAvatarPreview();
+      connectionStatus.textContent = "Reconexão solicitada. Ative sua câmera no VDO.Ninja.";
+    }).catch(error => { connectionStatus.textContent = String(error.message ?? error); report(error); });
   });
   reload.addEventListener("click", () => {
     void withDock(dock => dock._reloadRoom()).catch(report);
@@ -107,17 +111,40 @@ export function createPersonalTabs() {
   });
   avatarURL.value = prefs.avatarURL;
   avatarURL.disabled = prefs.avatar !== "custom";
+  const avatarSummary = element("div", undefined, { class: "rpgup-avatar-summary" });
+  const avatarPreview = element("img", undefined, { class: "rpgup-avatar-preview", alt: "Prévia da imagem da câmera desligada", hidden: "" });
+  const avatarStatus = element("p", "", { class: "rpgup-avatar-status", role: "status" });
+  avatarSummary.append(avatarPreview, avatarStatus);
+  function refreshAvatarPreview() {
+    const live = currentDock();
+    const world = game.settings.get(MODULE_ID, "world");
+    const selection = prefs.avatar === "custom" ? prefs.avatarURL
+      : prefs.avatar === "foundry" ? (world?.avatars?.[game.user.id] || game.user.avatar) : "";
+    const image = live?._avatarPreview && !live._avatarPreview.hidden
+      ? live._avatarPreview.src : selection;
+    avatarPreview.hidden = !image || prefs.avatar === "none";
+    if (!avatarPreview.hidden) avatarPreview.src = image;
+    avatarStatus.textContent = live?._avatarStatus?.textContent ||
+      (image ? "Prévia do placeholder. Use Aplicar / reconectar para atualizar a chamada." : "Sem placeholder.");
+  }
+  avatarPreview.addEventListener("error", () => { avatarPreview.hidden = true; });
   avatarPane.append(
     field("Imagem quando a câmera está desligada", avatar,
       "Avatar do Foundry, imagem personalizada ou nenhum placeholder. O avatar é reaplicado a cada sessão. Clique em Aplicar / reconectar para atualizar a chamada."),
     field("URL da imagem", avatarURL, "Imagem personalizada guardada apenas neste usuário."),
+    avatarSummary,
     element("p", "Mudar o placeholder não reinicia a câmera automaticamente.", { class: "rpgup-help" })
   );
+  refreshAvatarPreview();
   avatar.addEventListener("change", () => {
     avatarURL.disabled = avatar.value !== "custom";
     update({ avatar: avatar.value }, { reconnect: true });
+    refreshAvatarPreview();
   });
-  avatarURL.addEventListener("change", () => update({ avatarURL: avatarURL.value.trim() }, { reconnect: true }));
+  avatarURL.addEventListener("change", () => {
+    update({ avatarURL: avatarURL.value.trim() }, { reconnect: true });
+    refreshAvatarPreview();
+  });
 
   const help = box("rpgup-personal-help");
   help.append(
