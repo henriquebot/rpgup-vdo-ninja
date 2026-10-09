@@ -81,6 +81,11 @@ try {
   const initial = navigations;
   const initialURL = await page.locator("iframe").getAttribute("src");
   assert.equal(new URL(initialURL).searchParams.get("push"), "slot_gm");
+  assert.equal(new URL(initialURL).searchParams.get("showlabels"), "rounded");
+  const initialCSS = decodeURIComponent(atob(new URL(initialURL).searchParams.get("base64css")));
+  assert.match(initialCSS, /#d3a45a/);
+  assert.match(initialCSS, /#3399cc/);
+  assert.doesNotMatch(initialCSS, /data-speaking/, "Discord does not provide VDO voice activity");
   assert.ok(new URL(initialURL).searchParams.get("avatar").startsWith("data:image/webp;base64,"), "Avatar sem CORS vira uma imagem autossuficiente");
   assert.ok(initialURL.length < 8000);
   assert.equal(await page.locator('[name="Câmera padrão"], [name="Interface VDO"], [name="Self-preview"]').count(), 0);
@@ -127,6 +132,13 @@ try {
   await page.getByRole("button", { name: "Configurar mesa", exact: true }).click();
   await page.locator(".rpgup-config-form").waitFor();
   assert.equal(await page.locator("#rpgup-world-tab-general").getAttribute("aria-selected"), "true");
+  await worldTab(page, "appearance");
+  assert.equal(await page.getByRole("combobox", { name: "theme" }).inputValue(), "modern");
+  for (const value of ["scifi", "neon", "rustic", "fantasy", "none", "modern"]) {
+    await page.getByRole("combobox", { name: "theme" }).selectOption(value);
+  }
+  assert.match(await page.locator("#rpgup-world-pane-appearance").innerText(), /Discord não informa/);
+  await worldTab(page, "general");
   await page.locator("#rpgup-vdo-world-config [aria-label='Iniciar tour guiado']").click();
   assert.match(await page.locator("#rpgup-vdo-world-config .rpgup-tour").innerText(), /sala/i);
   await page.locator("#rpgup-vdo-world-config .rpgup-tour-close").click();
@@ -210,6 +222,9 @@ try {
   assert.equal(director.searchParams.get("roombitrate"), "200");
   assert.equal(director.searchParams.get("maxframerate"), "20");
   assert.equal(director.searchParams.get("cover"), "");
+  assert.equal(director.searchParams.get("showlabels"), "rounded");
+  assert.equal(director.searchParams.get("meterstyle"), "3");
+  assert.match(decodeURIComponent(atob(director.searchParams.get("base64css"))), /data-speaking="2"/);
   assert.equal(director.searchParams.has("structure"), false);
   await page.evaluate(() => { globalThis.layoutFrame = document.querySelector("iframe"); });
   const layoutLoads = navigations;
