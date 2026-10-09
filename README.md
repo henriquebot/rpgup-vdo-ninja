@@ -2,7 +2,7 @@
 
 Interface Foundry VTT **v13/v14** para uma **Room oficial VDO.Ninja**. Um iframe local por cliente, Stream IDs estáveis configurados pelo GM e um dock ApplicationV2 próprio. O jogador usa os controles nativos do VDO.Ninja para ativar a câmera e participar.
 
-**Versão de produção: 1.0.6.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
+**Versão de produção: 1.0.7.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
 
 A arquitetura vigente está em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). A proposta anterior foi preservada, sem alterações, em [docs/ARCHITECTURE-OLD-MEDIAMTX.md](docs/ARCHITECTURE-OLD-MEDIAMTX.md) **apenas como histórico superado**.
 
@@ -88,3 +88,10 @@ O módulo usa um iframe oficial por cliente e não inclui servidor de mídia, ba
 Nos modos acoplados à borda, a janela VDO.Ninja não exibe a barra de título do ApplicationV2. Em seu lugar, um **único botão de engrenagem junto aos controles do canvas** reúne as ações Configurações, Recarregar, Desacoplar e Fechar. Esse botão segue o painel quando ele muda de posição ou tamanho. Quando o modo é **Flutuante**, a barra de título normal retorna para permitir arrastar e fechar. Mudar o modo/abrir controles não reinicia o iframe nem a chamada.
 
 No iframe dos participantes, a URL inclui o parâmetro oficial `hideheader`, removendo a faixa “VDO.Ninja / You are in room” sem esconder os controles nativos de câmera, microfone e PiP. O parâmetro é aplicado na próxima conexão ou ao atualizar a sala VDO depois de instalar o módulo. Links solo para OBS continuam inalterados.
+
+
+## Layout sem margens e ações na aba Configurações (1.0.7)
+
+A janela acoplada agora toca as bordas da tela: sem os vãos anteriores de 8px nas laterais/topo/rodapé ou os 16px extras de reserva na interface. O modo flutuante preserva sua margem externa.
+
+Removido o botão de engrenagem flutuando sobre o canvas. Na **aba Configurações** do Foundry, **Câmeras VDO.Ninja** passa a ser um botão alternador: clique para abrir, clique novamente para fechar. **Opções VDO.Ninja** é um segundo botão nessa mesma área, que abre as opções da dock (e a própria dock se estiver fechada), sem reconectar a câmera ativa. A ação **Recarregar sala VDO** também fica dentro dessas opções; configurações permitem continuar mudando entre dock e janela flutuante. No modo flutuante, a barra de título nativa permanece.
