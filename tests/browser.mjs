@@ -94,7 +94,7 @@ try {
     return [img.naturalWidth, img.naturalHeight];
   }, new URL(initialURL).searchParams.get("avatar"));
   assert.ok(preparedDimensions[0] >= 384 && preparedDimensions[1] >= 384, "Avatar de alta resolução não pode encolher indevidamente");
-  assert.ok(initialURL.length < 8000);
+  assert.ok(initialURL.length < 26000, "URL com avatar nítido e CSS ainda tem limite de segurança");
   assert.equal(await page.locator('[name="Câmera padrão"], [name="Interface VDO"], [name="Self-preview"]').count(), 0);
   await dockTab(page, "window");
   assert.match(await page.getByRole("checkbox").getAttribute("title"), /não liga sua câmera/);
