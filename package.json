@@ -1,6 +1,6 @@
 {
   "name": "rpgup-vdo-ninja",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,5 +11,7 @@
     "check": "node scripts/check.mjs",
     "package": "node scripts/package.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }
