@@ -135,17 +135,19 @@ export function normalizePrefs(input = {}) {
 
 export function dockPosition(prefs, viewport) {
   const p = normalizePrefs(prefs);
+  // Docked windows use every pixel of the viewport, without blank strips
+  // above, below, or along their outer edges. Floating stays inset by 8px.
+  if (["left", "right"].includes(p.dock)) {
+    const width = Math.min(p.sideWidth, viewport.width, Math.max(1, viewport.width * 0.5));
+    return { width, height: viewport.height, left: p.dock === "left" ? 0 : viewport.width - width, top: 0 };
+  }
+  if (["top", "bottom"].includes(p.dock)) {
+    const height = Math.min(p.barHeight, viewport.height, Math.max(1, viewport.height * 0.5));
+    return { width: viewport.width, height, left: 0, top: p.dock === "top" ? 0 : viewport.height - height };
+  }
   const gap = 8;
   const maxWidth = Math.max(1, viewport.width - gap * 2);
   const maxHeight = Math.max(1, viewport.height - gap * 2);
-  if (["left", "right"].includes(p.dock)) {
-    const width = Math.min(p.sideWidth, maxWidth, Math.max(1, viewport.width * 0.5 - gap));
-    return { width, height: maxHeight, left: p.dock === "left" ? gap : viewport.width - gap - width, top: gap };
-  }
-  if (["top", "bottom"].includes(p.dock)) {
-    const height = Math.min(p.barHeight, maxHeight, Math.max(1, viewport.height * 0.5 - gap));
-    return { width: maxWidth, height, left: gap, top: p.dock === "top" ? gap : viewport.height - gap - height };
-  }
   const width = Math.min(p.floating.width, maxWidth);
   const height = Math.min(p.floating.height, maxHeight);
   return {

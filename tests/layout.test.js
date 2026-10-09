@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseExtraQuery, validateWorld, DEFAULT_WORLD } from "../src/config.js";
+import { parseExtraQuery, validateWorld, DEFAULT_WORLD, dockPosition } from "../src/config.js";
 import { participantURL, soloURL, obsExport } from "../src/urls.js";
 
 const users = Array.from({ length: 4 }, (_, index) => ({ id: `u${index}`, name: `Câmera ${index} & +`, isGM: index === 0 }));
@@ -74,4 +74,21 @@ test("iframe oculta o cabeçalho VDO sem eliminar os controles nativos", () => {
   assert.equal(sender.searchParams.get("push"), "slot_u0");
   const viewer = new URL(soloURL(world, "u0", users));
   assert.equal(viewer.searchParams.has("hideheader"), false);
+});
+
+test("dock acoplada toca os quatro cantos sem margens; flutuante mantém distância", () => {
+  const viewport = { width: 1440, height: 900 };
+  const cases = {
+    left: { left: 0, top: 0, height: 900 },
+    right: { left: 1000, top: 0, height: 900 },
+    top: { left: 0, top: 0, width: 1440 },
+    bottom: { left: 0, top: 540, width: 1440 }
+  };
+  for (const [dock, expected] of Object.entries(cases)) {
+    const position = dockPosition({ dock, sideWidth: 440, barHeight: 360 }, viewport);
+    for (const [key, value] of Object.entries(expected)) assert.equal(position[key], value, dock + " " + key);
+  }
+  const floating = dockPosition({ dock: "floating", floating: { width: 720, height: 600, left: 120, top: 80 } }, viewport);
+  assert.equal(floating.left, 120);
+  assert.equal(floating.top, 80);
 });
