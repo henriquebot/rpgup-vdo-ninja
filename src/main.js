@@ -6,6 +6,9 @@ import { button, tooltip, report } from "./dom.js";
 
 export async function openDock() {
   const dock = new RoomDock();
+  // The singleton survives closing; recover preferences edited while closed
+  // from the user's latest saved flags before creating the new VDO iframe.
+  if (!dock.rendered) dock.prefs = userPrefs();
   await dock.render({ force: true });
   dock.bringToFront();
   syncDockButton();
