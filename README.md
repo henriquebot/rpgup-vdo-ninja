@@ -19,6 +19,14 @@ O [repositório](https://github.com/henriquebot/rpgup-vdo-ninja) contém o códi
 
 Para instalação manual de desenvolvimento, execute `npm run package` com Node.js 20+ e copie `dist/rpgup-vdo-ninja` para `<User Data>/Data/modules/rpgup-vdo-ninja`. Uma nova versão atualiza `module.json`/`package.json` e seu link de distribuição.
 
+## Nomes, temas e indicadores de fala
+
+- O nome de cada câmera vem de **Usuários do Foundry** e aparece por padrão no VDO.Ninja com `showlabels=rounded`. Não precisa preencher nomes manualmente.
+- GM: clique em **Configurar mesa → Aparência (paleta)** e escolha entre Sem bordas, Sci-fi, Moderno, Neon, Rústico ou Fantástico. Moderno é padrão. Cada moldura tenta usar a cor **Color** definida no perfil do respectivo usuário Foundry (uma por Stream ID), com cor neutra se o perfil não tiver cor válida.
+- Com **áudio nativo VDO** a borda pode engrossar suavemente quando o medidor oficial detectar uma pessoa falando. **Áudio por Discord:** o VDO recebe áudio desativado, portanto **não consegue detectar falantes no Discord**. Isso não exige permissões ou integrações adicionais.
+- CSS e rótulos são aplicados nas entradas de participantes, incluindo links de navegador externo. OBS solo permanece limpo para preservar cenas existentes. As classes das câmeras pertencem ao VDO e precisam ser validadas após atualizações upstream.
+- Os avatares da câmera desligada são redimensionados com maior nitidez que versões anteriores, usando WebP até 640px e limite de tamanho para a URL. O avatar original do Foundry continua intacto; alguns arquivos muito pesados podem precisar de uma imagem mais simples.
+
 ## Uso e limites
 
 - **Esquerda por padrão**, inclusive para preferências antigas que ainda usavam o default flutuante. Preferências antigas que escolheram outra borda permanecem nessa borda; escolher Flutuante após atualizar também é lembrado. Depois, sua posição escolhida é lembrada. Na borda esquerda/direita/topo/embaixo, CSS reserva espaço em `#interface` para controles, navegação, hotbar e sidebar. O canvas continua em tela cheia. A integração de layout é específica do DOM v13/v14 e deve ser conferida com os módulos de UI da mesa.
