@@ -86,10 +86,8 @@ export class RoomDock extends ApplicationV2 {
       { class: "rpgup-director-help", hidden: "" });
     this._avatarPreview = element("img", undefined, { alt: "Placeholder preparado", hidden: "" });
     this._avatarStatus = element("p", "", { hidden: "" });
-    this._root.append(
-      this._alert, this._frameHost, this._status,
-      this._directorHelp, this._avatarPreview, this._avatarStatus
-    );
+    // Keep internal status/image elements detached; the dock is video-only.
+    this._root.append(this._alert, this._frameHost);
     void this._connect({ saveDraft: false });
     return this._root;
   }
@@ -147,7 +145,7 @@ export class RoomDock extends ApplicationV2 {
       world = worldConfig();
       const url = participantURL(world, game.user, this.prefs, Array.from(game.users), location.href, avatar);
       const director = new URL(url).searchParams.has("director");
-      this._directorHelp.hidden = !director;
+      this._directorHelp.hidden = true;
       if (director && !this._directorNoticeShown) {
         ui.notifications.info(this._directorHelp.textContent);
         this._directorNoticeShown = true;
