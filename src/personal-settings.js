@@ -109,7 +109,7 @@ export function createPersonalTabs() {
   avatarURL.disabled = prefs.avatar !== "custom";
   avatarPane.append(
     field("Imagem quando a câmera está desligada", avatar,
-      "Avatar do Foundry, imagem personalizada ou nenhum placeholder. Clique em Aplicar / reconectar para atualizar a chamada."),
+      "Avatar do Foundry, imagem personalizada ou nenhum placeholder. O avatar é reaplicado a cada sessão. Clique em Aplicar / reconectar para atualizar a chamada."),
     field("URL da imagem", avatarURL, "Imagem personalizada guardada apenas neste usuário."),
     element("p", "Mudar o placeholder não reinicia a câmera automaticamente.", { class: "rpgup-help" })
   );
