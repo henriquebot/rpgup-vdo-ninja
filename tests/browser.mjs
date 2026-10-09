@@ -111,7 +111,7 @@ try {
   assert.ok(initialURL.length <= 6900, "Nunca enviar request URI grande o bastante para o nginx responder 414");
   assert.equal(await page.locator('[name="Câmera padrão"], [name="Interface VDO"], [name="Self-preview"]').count(), 0);
   await dockTab(page, "window");
-  assert.match(await page.getByRole("checkbox").getAttribute("title"), /não liga sua câmera/);
+  assert.match(await page.getByRole("checkbox").getAttribute("title"), /não liga sua câmera/i);
   await dockTab(page, "avatar");
   assert.match(await page.getByRole("combobox", { name: "Placeholder", exact: true }).getAttribute("data-tooltip"), /cada sessão/);
   await dockTab(page, "window");
