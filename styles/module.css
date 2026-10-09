@@ -146,3 +146,66 @@ body.rpgup-vdo-docked #interface {
   .rpgup-config-form td { padding: 6px 0; }
   .rpgup-config-form tbody tr { padding: 10px 0; }
 }
+
+/* Docked mode: native VDO controls remain inside the iframe; dock controls
+   move to one small canvas-side menu. Floating windows keep their header
+   for dragging and access to Foundry's standard window actions. */
+.rpgup-room-dock:not([data-dock="floating"]) > .window-header { display: none !important; }
+.rpgup-vdo-quick-controls[hidden],
+.rpgup-vdo-quick-menu[hidden] { display: none !important; }
+.rpgup-vdo-quick-controls {
+  position: fixed;
+  z-index: 2000;
+  color: #f0ebe2;
+  font: 13px/1.3 "Signika", sans-serif;
+}
+.rpgup-vdo-quick-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: #e9e3dc;
+  border: 1px solid #6d6b6b;
+  border-radius: 6px;
+  background: rgba(24, 25, 29, .9);
+  box-shadow: 0 2px 8px #0008;
+  cursor: pointer;
+}
+.rpgup-vdo-quick-trigger i { margin: 0; pointer-events: none; }
+.rpgup-vdo-quick-trigger:hover,
+.rpgup-vdo-quick-trigger[aria-expanded="true"] { border-color: #d7ab70; color: #d7ab70; }
+.rpgup-vdo-quick-trigger.rpgup-attention { color: #e9b35a; border-color: #e9b35a; }
+.rpgup-vdo-quick-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  width: 210px;
+  padding: 5px;
+  border: 1px solid #6d6b6b;
+  border-radius: 7px;
+  background: rgba(23, 24, 29, .98);
+  box-shadow: 0 6px 24px #000b;
+}
+.rpgup-vdo-quick-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 8px;
+  text-align: left;
+  color: #f0ebe2;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.rpgup-vdo-quick-menu button:hover,
+.rpgup-vdo-quick-menu button:focus-visible {
+  background: #5f4d36;
+  outline: none;
+}
+.rpgup-vdo-quick-menu button:disabled { opacity: .5; cursor: not-allowed; }
+.rpgup-vdo-quick-menu button i { width: 17px; text-align: center; }
