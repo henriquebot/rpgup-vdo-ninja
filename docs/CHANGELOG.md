@@ -1,5 +1,15 @@
 # Histórico de versões
 
+## 1.0.5 — 09/10/2026 (correção crítica)
+
+- Corrige a regressão **414 Request-URI Too Large** da v1.0.4: CSS de temas e avatares WebP codificados juntos ultrapassavam o limite de requisição HTTP do nginx.
+- Define um **limite máximo de 6.900 caracteres** para a URL inteira do VDO, incluindo dados de avatar, Room, IDs, nomes, senhas e temas; cria orçamento calculado individualmente para cada avatar.
+- Compacta significativamente o CSS e evita repetir seletores por jogador. Em mundos muito grandes, o tema é omitido automaticamente se ameaçar a conexão; nomes permanecem visíveis.
+- Imagem WebP usa a maior resolução/qualidade que caiba na URL. Se não houver espaço para a miniatura, prioriza abrir a chamada com avatar padrão VDO, em vez de receber erro 414.
+- Corrige os links externos copiados no painel do mestre usando o mesmo cálculo seguro de tamanho.
+- Atualiza os testes para reprovar qualquer URL acima de 6.900 caracteres, inclusive com avatares enormes e muitos participantes.
+
+
 ## 1.0.4 — 09/10/2026
 
 - Mostra automaticamente o nome do usuário do Foundry sobre cada câmera (label já existia; showlabels=rounded agora ativa a visualização).
