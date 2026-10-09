@@ -365,7 +365,8 @@ try {
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(() => new URL(document.querySelector("iframe").src).searchParams.get("avatar")?.startsWith("data:image/"));
   const foundryImage = new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar");
-  assert.equal(foundryImage, new URL(initialURL).searchParams.get("avatar"));
+  assert.ok(foundryImage.startsWith("data:image/webp;base64,"));
+  assert.ok((await page.locator("iframe").getAttribute("src")).length <= 6900, "Reconnect avatar respects nginx URL limit");
   await page.reload();
   await page.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
   assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar"), foundryImage);
