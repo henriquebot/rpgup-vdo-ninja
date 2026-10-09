@@ -170,7 +170,7 @@ try {
   await dockTab(page, "connect");
   await page.getByRole("button", { name: "Aplicar / reconectar", exact: true }).click();
   await page.waitForFunction(previous => document.querySelector("iframe").src !== previous, initialURL);
-  await page.locator(".rpgup-status").filter({ hasText: "Documento do iframe" }).waitFor();
+  await page.locator("iframe").contentFrame().locator("p").waitFor();
   assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.has("view"), false);
   await worldTab(page, "general");
   await page.locator(".rpgup-config-form").waitFor();
