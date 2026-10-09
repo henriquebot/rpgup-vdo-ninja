@@ -194,18 +194,18 @@ test("temas usam cor do usuário e data-speaking somente com áudio VDO", () => 
     { ...users[2], color: "not-a-color" }
   ];
   const css = themeCSS(world, colorUsers);
-  assert.match(css, /--rpgup-color:#12aB78/);
-  assert.match(css, /--rpgup-color:#ffaabb/);
-  assert.match(css, /--rpgup-color:#a5a5b2/);
+  assert.match(css, /--c:#12aB78/);
+  assert.match(css, /--c:#ffaabb/);
+  assert.match(css, /--c:#a5a5b2/);
   assert.match(css, /slot_a81k2/);
   assert.doesNotMatch(css, /data-speaking/);
   const vdo = { ...world, audio: "vdo", theme: "neon" };
   const url = new URL(participantURL(vdo, colorUsers[0], {}, colorUsers));
-  assert.equal(url.searchParams.get("meterstyle"), "3");
+  assert.equal(url.searchParams.get("meterstyle"), "4");
   const encoded = url.searchParams.get("base64css");
   const restored = decodeURIComponent(atob(encoded));
   assert.match(restored, /data-speaking="2"/);
-  assert.match(restored, /--rpgup-color:#12aB78/);
+  assert.match(restored, /--c:#12aB78/);
   assert.equal(url.searchParams.get("showlabels"), "rounded");
   assert.equal(foundryUserColor({ color: "#abc" }), "#aabbcc");
   assert.equal(foundryUserColor({ color: "red;}" }), "#a5a5b2");
@@ -223,4 +223,21 @@ test("sem tema mantém nomes mas não adiciona estilos nem medidor", () => {
   }
   assert.throws(() => validateWorld({ ...world, theme: "background-image:evil" }, users), /Tema/);
   assert.equal(new URL(soloURL({ ...world, theme: "neon" }, users[0].id, users)).searchParams.has("base64css"), false);
+});
+
+test("414 regression: even pathological avatars and many members never create an oversized VDO URL", () => {
+  const huge = "data:image/webp;base64," + "A".repeat(22000);
+  const enormous = participantURL(world, users[0], {}, users, "https://foundry.example/game", huge);
+  assert.ok(enormous.length <= 6900);
+  assert.equal(new URL(enormous).searchParams.get("avatar"), "default");
+  assert.equal(new URL(enormous).searchParams.get("label"), users[0].name);
+  const crowd = Array.from({ length: 35 }, (_, i) => ({
+    id: "extra" + i, name: "Player " + i, color: "#aa8844"
+  }));
+  const slots = { ...world.slots };
+  for (let i = 0; i < crowd.length; i++) slots[crowd[i].id] = "slot_long_id_" + i.toString().padStart(3, "0");
+  const crowded = participantURL({ ...world, slots }, users[0], {}, [...users, ...crowd], "https://foundry.example/game", huge);
+  assert.ok(crowded.length <= 6900);
+  assert.equal(new URL(crowded).searchParams.get("room"), world.roomId);
+  assert.equal(new URL(crowded).searchParams.get("push"), world.slots[users[0].id]);
 });

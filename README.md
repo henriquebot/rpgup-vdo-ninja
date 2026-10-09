@@ -2,7 +2,7 @@
 
 Interface Foundry VTT **v13/v14** para uma **Room oficial VDO.Ninja**. Um iframe local por cliente, Stream IDs estáveis configurados pelo GM e um dock ApplicationV2 próprio. O jogador usa os controles nativos do VDO.Ninja para ativar a câmera e participar.
 
-**Versão de produção: 1.0.4.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
+**Versão de produção: 1.0.5.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
 
 A arquitetura vigente está em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). A proposta anterior foi preservada, sem alterações, em [docs/ARCHITECTURE-OLD-MEDIAMTX.md](docs/ARCHITECTURE-OLD-MEDIAMTX.md) **apenas como histórico superado**.
 
@@ -25,7 +25,7 @@ Para instalação manual de desenvolvimento, execute `npm run package` com Node.
 - GM: clique em **Configurar mesa → Aparência (paleta)** e escolha entre Sem bordas, Sci-fi, Moderno, Neon, Rústico ou Fantástico. Moderno é padrão. Cada moldura tenta usar a cor **Color** definida no perfil do respectivo usuário Foundry (uma por Stream ID), com cor neutra se o perfil não tiver cor válida.
 - Com **áudio nativo VDO** a borda pode engrossar suavemente quando o medidor oficial detectar uma pessoa falando. **Áudio por Discord:** o VDO recebe áudio desativado, portanto **não consegue detectar falantes no Discord**. Isso não exige permissões ou integrações adicionais.
 - CSS e rótulos são aplicados nas entradas de participantes, incluindo links de navegador externo. OBS solo permanece limpo para preservar cenas existentes. As classes das câmeras pertencem ao VDO e precisam ser validadas após atualizações upstream.
-- Os avatares da câmera desligada são redimensionados com maior nitidez que versões anteriores, usando WebP até 640px e limite de tamanho para a URL. O avatar original do Foundry continua intacto; alguns arquivos muito pesados podem precisar de uma imagem mais simples.
+- Os avatares da câmera desligada são redimensionados com maior nitidez que versões anteriores, usando WebP até 640px quando couber no limite de segurança de 6.900 caracteres para a URL. O avatar original do Foundry continua intacto; alguns arquivos muito pesados podem precisar de uma imagem mais simples.
 
 ## Uso e limites
 

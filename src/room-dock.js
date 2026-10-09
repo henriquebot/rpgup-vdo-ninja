@@ -1,5 +1,5 @@
 import { DOCKS, AVATARS, dockPosition, normalizePrefs } from "./config.js";
-import { participantURL } from "./urls.js";
+import { participantURL, avatarURLBudget } from "./urls.js";
 import { prepareAvatar } from "./avatar.js";
 import { worldConfig, userPrefs, savePrefs } from "./settings.js";
 import { element, select, field, tooltip, panel, button, report } from "./dom.js";
@@ -228,7 +228,8 @@ export class RoomDock extends ApplicationV2 {
       let avatar;
       try {
         const avatarUser = { avatar: world.avatars?.[game.user.id] || game.user.avatar };
-        const prepared = await prepareAvatar(avatarUser, this.prefs, { signal });
+        const budget = avatarURLBudget(world, game.user, this.prefs, Array.from(game.users), location.href);
+        const prepared = await prepareAvatar(avatarUser, this.prefs, { signal, maxEncodedLength: budget });
         avatar = prepared.value;
         this._avatarPreview.hidden = !avatar || avatar === "default";
         if (!this._avatarPreview.hidden) this._avatarPreview.src = avatar;

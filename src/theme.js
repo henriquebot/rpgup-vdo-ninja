@@ -22,31 +22,22 @@ export function themeCSS(world, users = []) {
   if (!Object.hasOwn(CAMERA_THEMES, theme)) throw new Error("Tema visual inválido.");
   if (theme === "none") return "";
   const style = STYLES[theme];
+  // Keep CSS tiny. CSS and the embedded Foundry avatar share the same HTTP
+  // request line: the old repeated selectors caused a 414 response in nginx.
   const lines = [
-    // .tile is the official VDO video wrapper (see VDO.Ninja showlabels docs).
-    `.tile{--rpgup-color:#a5a5b2;box-sizing:border-box!important;border:${style.width}px solid var(--rpgup-color)!important;border-radius:${style.radius}px!important;box-shadow:${style.shadow}!important;transition:border-width .12s,box-shadow .12s}`,
-    `.tile video{border-radius:${Math.max(0,style.radius-2)}px!important}`,
-    `.tile .video-label{border-radius:5px!important;background:${style.label}!important;color:#f9f8f5!important}`
+    `.tile{--c:#a5a5b2;box-sizing:border-box!important;border:${style.width}px solid var(--c)!important;border-radius:${style.radius}px!important;box-shadow:${style.shadow.replaceAll("var(--rpgup-color)","var(--c)")}!important}`,
+    `.tile .video-label{background:${style.label}!important;border-radius:4px!important}`
   ];
-  // Reuse existing stable Stream IDs for a color on *each tile*, rather than
-  // incorrectly painting all the remote participants in the viewer's color.
+  // VDO sets stream identifiers on video elements. Only two variants are
+  // included, rather than five verbose duplicates for every participant.
   for (const user of users) {
     const id = world?.slots?.[user.id];
     if (typeof id !== "string" || !/^[A-Za-z0-9_]{1,64}$/.test(id)) continue;
-    const selector = [
-      `.tile[data-stream-id="${id}"]`,
-      `.tile[data-streamid="${id}"]`,
-      `.tile:has(video[data-stream-id="${id}"])`,
-      `.tile:has(video[data-streamid="${id}"])`,
-      `.tile:has(video[id="${id}"])`
-    ].join(",");
-    lines.push(`${selector}{--rpgup-color:${foundryUserColor(user)}}`);
+    lines.push(`.tile:has(video[data-streamid="${id}"]),.tile:has(video[data-stream-id="${id}"]){--c:${foundryUserColor(user)}}`);
   }
-  // VDO only produces data-speaking for streams with audio to analyse.
-  // CSS alone cannot detect activity in a separate Discord call.
   if (world?.audio === "vdo") {
     lines.push('.tile:has(video[data-speaking="1"]){border-width:3px!important}');
-    lines.push('.tile:has(video[data-speaking="2"]){border-width:4px!important;box-shadow:0 0 9px var(--rpgup-color)!important}');
+    lines.push('.tile:has(video[data-speaking="2"]){border-width:4px!important}');
   }
   return lines.join("");
 }

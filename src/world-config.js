@@ -1,6 +1,6 @@
 import { MODULE_ID, fillMissingSlots, validateWorld, normalizePrefs, suggestRoomId, QUALITY_PRESETS, ROOM_LAYOUTS, CAMERA_THEMES } from "./config.js";
 import { worldConfig, saveWorld } from "./settings.js";
-import { participantURL, soloURL, obsExport } from "./urls.js";
+import { participantURL, soloURL, obsExport, avatarURLBudget } from "./urls.js";
 import { prepareAvatar } from "./avatar.js";
 import { element, select, field, tooltip, button, downloadJSON, report } from "./dom.js";
 import { createIconTabs } from "./tabs.js";
@@ -169,7 +169,10 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
           let avatarError = "";
           try {
             const avatarUser = { avatar: savedConfig.avatars?.[user.id] || user.avatar };
-            preparedAvatar = (await prepareAvatar(avatarUser, prefs, { signal: linksAbort.signal, baseURL: location.href })).value;
+            const budget = avatarURLBudget(savedConfig, user, prefs, users, location.href);
+            preparedAvatar = (await prepareAvatar(avatarUser, prefs, {
+              signal: linksAbort.signal, baseURL: location.href, maxEncodedLength: budget
+            })).value;
           } catch (error) {
             if (linksAbort.signal.aborted) return;
             avatarError = error.message;
