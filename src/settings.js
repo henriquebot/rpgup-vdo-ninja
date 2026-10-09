@@ -39,7 +39,7 @@ export function registerSettings(RoomDock, WorldConfig, onChange) {
   });
   game.settings.registerMenu(MODULE_ID, "openDock", {
     name: "RPGUP VDO.Ninja — Câmeras", label: "Abrir dock de câmeras",
-    hint: "A engrenagem do cabeçalho mostra posição, zoom, avatar e abertura automática. Câmera e PiP usam os controles do VDO.",
+    hint: "No modo acoplado, a engrenagem junto aos controles do canvas abre as opções; flutuante usa a barra de título. Câmera e PiP usam os controles do VDO.",
     icon: "fas fa-video", type: RoomDock, restricted: false
   });
 }
