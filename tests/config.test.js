@@ -201,7 +201,7 @@ test("temas usam cor do usuário e data-speaking somente com áudio VDO", () => 
   assert.doesNotMatch(css, /data-speaking/);
   const vdo = { ...world, audio: "vdo", theme: "neon" };
   const url = new URL(participantURL(vdo, colorUsers[0], {}, colorUsers));
-  assert.equal(url.searchParams.get("meterstyle"), "3");
+  assert.equal(url.searchParams.get("meterstyle"), "4");
   const encoded = url.searchParams.get("base64css");
   const restored = decodeURIComponent(atob(encoded));
   assert.match(restored, /data-speaking="2"/);
