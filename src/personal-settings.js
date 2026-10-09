@@ -69,7 +69,7 @@ export function createPersonalTabs() {
   zoom.append(smaller, zoomReset, larger);
   const auto = element("input", undefined, { type: "checkbox" });
   auto.checked = prefs.autoOpen;
-  const autoField = field("Abrir câmeras ao entrar no mundo", auto, "Não liga a câmera automaticamente.");
+  const autoField = field("Abrir câmeras ao entrar no mundo", auto, "Não liga sua câmera automaticamente.");
   autoField.classList.add("rpgup-toggle");
   function syncSize() {
     const side = ["left", "right"].includes(prefs.dock);
