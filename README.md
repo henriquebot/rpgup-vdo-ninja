@@ -2,7 +2,7 @@
 
 Interface Foundry VTT **v13/v14** para uma **Room oficial VDO.Ninja**. Um iframe local por cliente, Stream IDs estáveis configurados pelo GM e um dock ApplicationV2 próprio. O jogador usa os controles nativos do VDO.Ninja para ativar a câmera e participar.
 
-**Versão de produção: 1.0.5.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
+**Versão de produção: 1.0.6.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
 
 A arquitetura vigente está em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). A proposta anterior foi preservada, sem alterações, em [docs/ARCHITECTURE-OLD-MEDIAMTX.md](docs/ARCHITECTURE-OLD-MEDIAMTX.md) **apenas como histórico superado**.
 
@@ -81,3 +81,10 @@ Teste optativo da UI oficial: `npm run test:official-ui` usa o mesmo Playwright 
 Para atualizar: saia do World, atualize o módulo no Setup e confirme **1.0.1**. Recarregue os navegadores do GM e dos jogadores (Ctrl+F5). Room, slots e preferências existentes são preservados. Configurações sem layout salvo continuam no padrão VDO.Ninja; para preencher as áreas, selecione **Layout das câmeras → Compacto / preencher espaço**, salve e aplique/reconecte em cada cliente. Não é necessário desinstalar nem gerar novos IDs.
 
 O módulo usa um iframe oficial por cliente e não inclui servidor de mídia, backend, SDK WebRTC, AVClient, controle OBS ou fork. O painel aceita os usuários do World, inclusive mesas com 4–6 participantes; o teste automatizado de seis usuários verifica associação e exportação, não capacidade de mídia da rede. A aprovação do protótipo e a autorização de produção vieram do usuário. Os testes do agente, seus ambientes e limites estão registrados em [PROTOTYPE-RESULTS.md](docs/PROTOTYPE-RESULTS.md).
+
+
+## Controles compactos e cabeçalho do VDO.Ninja (1.0.6)
+
+Nos modos acoplados à borda, a janela VDO.Ninja não exibe a barra de título do ApplicationV2. Em seu lugar, um **único botão de engrenagem junto aos controles do canvas** reúne as ações Configurações, Recarregar, Desacoplar e Fechar. Esse botão segue o painel quando ele muda de posição ou tamanho. Quando o modo é **Flutuante**, a barra de título normal retorna para permitir arrastar e fechar. Mudar o modo/abrir controles não reinicia o iframe nem a chamada.
+
+No iframe dos participantes, a URL inclui o parâmetro oficial `hideheader`, removendo a faixa “VDO.Ninja / You are in room” sem esconder os controles nativos de câmera, microfone e PiP. O parâmetro é aplicado na próxima conexão ou ao atualizar a sala VDO depois de instalar o módulo. Links solo para OBS continuam inalterados.

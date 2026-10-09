@@ -31,9 +31,22 @@ const screenshotDirectory = path.join(root, "test-results");
 await mkdir(screenshotDirectory, { recursive: true });
 async function dockTab(page, key) { await page.locator(`#rpgup-dock-tab-${key}`).click(); }
 async function worldTab(page, key) { await page.locator(`#rpgup-world-tab-${key}`).click(); }
+async function openQuickMenu(page) {
+  const trigger = page.getByRole("button", { name: "Opções do RPGUP VDO.Ninja", exact: true });
+  if (await trigger.getAttribute("aria-expanded") === "false") await trigger.click();
+}
+async function dockAction(page, name) {
+  await openQuickMenu(page);
+  await page.locator(".rpgup-vdo-quick-menu").getByRole("menuitem", { name, exact: true }).click();
+}
 async function openSettings(page) {
-  const button = page.getByRole("button", { name: "Configurações da dock", exact: true });
-  if (await button.getAttribute("aria-expanded") === "false") await button.click();
+  const dock = await page.locator("#rpgup-vdo-room").getAttribute("data-dock");
+  if (dock !== "floating") {
+    if (await page.locator("#rpgup-vdo-settings").isHidden()) await dockAction(page, "Configurações da dock");
+  } else {
+    const button = page.locator(".window-header [data-action=toggleModuleSettings]");
+    if (await button.getAttribute("aria-expanded") === "false") await button.click();
+  }
 }
 try {
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}) });
@@ -54,10 +67,12 @@ try {
   assert.equal(await page.locator(".window-header [data-action=toggleModuleSettings]").count(), 1);
   assert.equal(await page.locator(".window-header [data-action=undock]").count(), 1);
   assert.equal(await page.locator(".window-header [data-action=reloadRoom]").count(), 1);
+  assert.equal(await page.locator("#rpgup-vdo-room > .window-header").isVisible(), false, "Dock não mostra barra de título");
+  assert.equal(await page.locator(".rpgup-vdo-quick-controls").isVisible(), true, "Botão único no canvas");
   const initialLoads = navigations;
   const roomBeforeReload = await page.locator("iframe").getAttribute("src");
   await page.evaluate(() => { globalThis.sameWorld = true; globalThis.originalFrame = document.querySelector("iframe"); });
-  await page.getByRole("button", { name: "Recarregar sala VDO", exact: true }).click();
+  await dockAction(page, "Recarregar sala VDO");
   await page.waitForFunction(() => document.querySelector("iframe").contentWindow !== null);
   await page.locator("iframe").contentFrame().locator("p").waitFor();
   assert.equal(navigations, initialLoads + 1, "Reload navega só o iframe uma vez");
@@ -80,6 +95,7 @@ try {
   await page.screenshot({ path: path.join(screenshotDirectory, "dock-settings-desktop.png") });
   const initial = navigations;
   const initialURL = await page.locator("iframe").getAttribute("src");
+  assert.equal(new URL(initialURL).searchParams.has("hideheader"), true, "VDO.Ninja não mostra a linha You are in room");
   assert.equal(new URL(initialURL).searchParams.get("push"), "slot_gm");
   assert.equal(new URL(initialURL).searchParams.get("showlabels"), "rounded");
   const initialCSS = decodeURIComponent(atob(new URL(initialURL).searchParams.get("base64css")));
@@ -121,7 +137,9 @@ try {
   assert.equal(navigations, initial, "Dock/rerender não deve navegar ou recriar o iframe");
   assert.ok(await page.evaluate(async () => (await fixture.dock()).frontCount >= 3), "Reabrir chama bringToFront sem recarregar a sala");
   await page.getByRole("combobox", { name: "Posição do dock", exact: true }).selectOption("left");
-  await page.getByRole("button", { name: "Desacoplar janela", exact: true }).click();
+  await dockAction(page, "Desacoplar janela");
+  assert.equal(await page.locator("#rpgup-vdo-room > .window-header").isVisible(), true, "Janela flutuante recupera cabeçalho");
+  assert.equal(await page.locator(".rpgup-vdo-quick-controls").isVisible(), false, "Controles fora da janela escondidos no modo flutuante");
   assert.equal(await page.getByRole("combobox", { name: "Posição do dock", exact: true }).inputValue(), "floating");
   assert.equal(navigations, initial, "Desacoplar não deve recarregar a sala");
   await page.getByRole("button", { name: "Diminuir zoom", exact: true }).click();
