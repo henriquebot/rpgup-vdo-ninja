@@ -369,7 +369,8 @@ try {
   assert.ok((await page.locator("iframe").getAttribute("src")).length <= 6900, "Reconnect avatar respects nginx URL limit");
   await page.reload();
   await page.waitForFunction(() => globalThis.fixtureReady && document.querySelector("iframe"));
-  assert.equal(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar"), foundryImage);
+  assert.ok(new URL(await page.locator("iframe").getAttribute("src")).searchParams.get("avatar")?.startsWith("data:image/webp;base64,"), "Avatar is regenerated after reload within current URL budget");
+  assert.ok((await page.locator("iframe").getAttribute("src")).length <= 6900, "Reloaded room must not generate 414");
   assert.equal(await page.locator("#rpgup-vdo-settings").isVisible(), false);
   assert.equal(await page.locator(".rpgup-director-help").isVisible(), false);
   console.log("Avatar Foundry sem CORS: miniatura aplicada e reaplicada após reload; erro de imagem tem aviso explícito: OK.");
