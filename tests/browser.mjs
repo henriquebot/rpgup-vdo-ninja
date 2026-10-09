@@ -32,11 +32,17 @@ await mkdir(screenshotDirectory, { recursive: true });
 async function dockTab(page, key) { await page.locator(`#rpgup-dock-tab-${key}`).click(); }
 async function worldTab(page, key) { await page.locator(`#rpgup-world-tab-${key}`).click(); }
 async function openSettings(page) {
-  if (await page.locator("#rpgup-vdo-settings").count() === 0 ||
-      await page.locator("#rpgup-vdo-settings").isHidden()) {
+  if (await page.locator("#rpgup-vdo-settings").count() &&
+      await page.locator("#rpgup-vdo-settings").isVisible()) return;
+  // A floating window can physically cover the sidebar on a small screen.
+  // Use its native header in this layout, and the new sidebar action when docked.
+  const dock = await page.locator("#rpgup-vdo-room").getAttribute("data-dock");
+  if (dock === "floating") {
+    await page.locator("#rpgup-vdo-room > .window-header [data-action=toggleModuleSettings]").click();
+  } else {
     await page.getByRole("button", { name: "Opções VDO.Ninja", exact: true }).click();
-    await page.locator("#rpgup-vdo-settings").waitFor({ state: "visible" });
   }
+  await page.locator("#rpgup-vdo-settings").waitFor({ state: "visible" });
 }
 try {
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}) });
