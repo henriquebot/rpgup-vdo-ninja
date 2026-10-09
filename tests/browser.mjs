@@ -474,10 +474,19 @@ try {
 
   for (const viewport of [{ width: 900, height: 650 }, { width: 390, height: 640 }, { width: 360, height: 280 }]) {
     await page.setViewportSize(viewport);
+    // ResizeObserver updates the scaled iframe on the next render frame.
+    const settled = await page.waitForFunction(() => {
+      const host = document.querySelector(".rpgup-frame-host")?.getBoundingClientRect();
+      const frame = document.querySelector(".rpgup-frame-host iframe")?.getBoundingClientRect();
+      return Boolean(host && frame && host.height > 50 && host.width > 0 &&
+        Math.abs(host.width - frame.width) <= 1 &&
+        Math.abs(host.height - frame.height) <= 1);
+    }, null, { timeout: 2000 }).then(() => true, () => false);
     const host = await page.locator(".rpgup-frame-host").boundingBox();
     const frame = await page.locator("iframe").boundingBox();
     assert.ok(host.height > 50 && host.width > 0, "A sala continua visível em janela pequena");
-    assert.ok(Math.abs(host.width - frame.width) <= 1 && Math.abs(host.height - frame.height) <= 1, "Zoom preenche o espaço disponível após resize");
+    assert.ok(settled, "Zoom preenche o espaço disponível após resize: " +
+      JSON.stringify({ viewport, host, frame, deltaWidth: host.width - frame.width, deltaHeight: host.height - frame.height }));
   }
   await page.setViewportSize({ width: 390, height: 640 });
   await openSettings(page);
