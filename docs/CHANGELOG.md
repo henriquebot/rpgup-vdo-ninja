@@ -1,5 +1,17 @@
 # Histórico de versões
 
+## 1.0.4 — 09/10/2026
+
+- Mostra automaticamente o nome do usuário do Foundry sobre cada câmera (label já existia; showlabels=rounded agora ativa a visualização).
+- Nova guia **Aparência** em Configurar mesa: temas **Sci-fi, Moderno, Neon, Rústico, Fantástico** ou **Sem bordas**, escolhidos pelo GM para a Room; Moderno com borda discreta é o novo padrão. Todos usam a cor configurada no perfil de usuário Foundry para a moldura do respectivo Stream ID.
+- Bordas podem engrossar de 2px a 3/4px quando VDO.Ninja detecta fala pelo atributo data-speaking; isso depende de o áudio funcionar **dentro do VDO**. No modo Discord (noaudio) não há detecção de voz e nenhuma nova permissão de microfone é solicitada.
+- O CSS é enviado no formato base64css oficial do VDO.Ninja; as fontes OBS em modo solo continuam sem essa aparência.
+- Avatares ao desligar câmera tentam agora até 640px e maior qualidade WebP com orçamento limitado de 15 KB para evitar miniaturas minúsculas. Links de navegador externo recebem os mesmos avatares preparados. Imagens muito complexas podem exigir arquivo mais leve.
+- Validação de temas, nomes/cores e regressões do Foundry documentadas por testes automatizados. Nomes e Stream IDs existentes não são alterados.
+
+**Limite:** as classes do DOM interno do VDO são controladas pelo serviço externo; verifique cores de cada borda e atividade de voz com participantes reais após a atualização.
+
+
 ## 1.0.3 — 08/10/2026
 
 - **Guias com ícones e tooltips** na dock e no painel Configurar mesa, em vez de painéis longos empilhados. Primeira guia da dock mostra **Configurar mesa** (para GM) antes de Aplicar / reconectar.

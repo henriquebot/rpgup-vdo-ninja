@@ -1,4 +1,4 @@
-import { MODULE_ID, fillMissingSlots, validateWorld, normalizePrefs, suggestRoomId, QUALITY_PRESETS, ROOM_LAYOUTS } from "./config.js";
+import { MODULE_ID, fillMissingSlots, validateWorld, normalizePrefs, suggestRoomId, QUALITY_PRESETS, ROOM_LAYOUTS, CAMERA_THEMES } from "./config.js";
 import { worldConfig, saveWorld } from "./settings.js";
 import { participantURL, soloURL, obsExport } from "./urls.js";
 import { prepareAvatar } from "./avatar.js";
@@ -26,7 +26,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
 
   async _renderHTML() {
     const users = Array.from(game.users);
-    const signature = JSON.stringify(users.map(user => [user.id, user.name, user.isGM, user.avatar, user.active]));
+    const signature = JSON.stringify(users.map(user => [user.id, user.name, user.isGM, user.avatar, user.color?.css ?? String(user.color ?? ""), user.active]));
     if (this._form && this._userSignature === signature) return this._form;
     const draft = this._form ? this._readDraft() : null;
     // Stop background avatar preparation whenever the panel is rebuilt.
@@ -50,6 +50,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     const director = select(directors, config.directorUserId, "directorUserId");
     const quality = select(Object.fromEntries(Object.entries(QUALITY_PRESETS).map(([key, value]) => [key, value.label])), config.quality ?? "native", "quality");
     const roomLayout = select(ROOM_LAYOUTS, config.roomLayout ?? "native", "roomLayout");
+    const theme = select(CAMERA_THEMES, config.theme ?? "modern", "theme");
     const qualityHelp = element("p", QUALITY_PRESETS[quality.value].help, { class: "rpgup-help", role: "status" });
     quality.addEventListener("change", () => { qualityHelp.textContent = QUALITY_PRESETS[quality.value].help; });
     const intro = element("div", undefined, { class: "rpgup-intro" });
@@ -73,6 +74,23 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
       intro,
       element("p", "Configuração compartilhada. O Room ID sugerido usa o nome deste mundo, mas você pode mudá-lo antes de salvar.", { class: "rpgup-help" }),
       roomFields, qualityHelp
+    );
+    const appearance = element("div", undefined, { class: "rpgup-tab-section" });
+    const appearanceHelp = element("p", "", { class: "rpgup-help", role: "status" });
+    const updateAppearanceHelp = () => {
+      appearanceHelp.textContent = theme.value === "none"
+        ? "Sem bordas ou CSS de tema; os nomes Foundry continuam visíveis por padrão."
+        : (audio.value === "discord"
+          ? "Bordas discretas usam as cores dos usuários Foundry. O Discord não informa quem está falando ao VDO, então a borda não pulsa nesse modo."
+          : "Bordas discretas usam as cores dos usuários Foundry. Quando o VDO recebe áudio, a borda pode engrossar ligeiramente conforme a voz detectada.");
+    };
+    theme.addEventListener("change", updateAppearanceHelp);
+    audio.addEventListener("change", updateAppearanceHelp);
+    updateAppearanceHelp();
+    appearance.append(
+      field("Tema das bordas", theme, "Escolha um visual para as câmeras dos participantes; a cor principal vem do usuário Foundry, não de uma cor global."),
+      appearanceHelp,
+      element("p", "Os nomes vêm automaticamente da ficha de usuário do Foundry. A aparência é aplicada ao entrar ou reconectar, inclusive nos links externos dos jogadores; a fonte solo OBS continua limpa.", { class: "rpgup-help" })
     );
     const table = element("table");
     const head = element("tr");
@@ -239,6 +257,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
       tabs: [
         { key: "general", title: "Sala e qualidade", icon: "fa-house", children: [general] },
         { key: "participants", title: "Participantes e links", icon: "fa-users", children: [participants] },
+        { key: "appearance", title: "Aparência das câmeras", icon: "fa-palette", children: [appearance] },
         { key: "advanced", title: "Parâmetros avançados", icon: "fa-sliders", children: [advanced] },
         { key: "help", title: "Ajuda e primeiros passos", icon: "fa-circle-question", children: [help] }
       ],
@@ -248,6 +267,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
         { tab: "general", target: () => roomLayout, text: "Escolha o layout das câmeras. Compacto preenche os espaços e pode recortar imagens." },
         { tab: "participants", target: () => generate, text: "Gere e salve somente os IDs dos jogadores que ainda não têm um." },
         { tab: "participants", target: () => tableWrap, text: "Aqui ficam o link OBS de visualização e o link para entrar diretamente no navegador." },
+        { tab: "appearance", target: () => theme, text: "O mestre escolhe o tema ou Sem bordas. A cor principal de cada câmera usa a cor configurada pelo respectivo usuário Foundry." },
         { tab: "advanced", target: () => extra, text: "Parâmetros extras são opcionais. Use apenas se sua mesa realmente precisar." },
         { tab: "help", target: () => help, text: "Consulte esta ajuda quando quiser lembrar a diferença entre OBS e entrada externa." },
         { tab: "general", target: () => save, text: "Salve as mudanças. Depois use Aplicar / reconectar na dock para que entrem em vigor." }
@@ -267,7 +287,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
         if (value) avatars[userId] = value;
         else delete avatars[userId];
       }
-      return { roomId: room.value.trim(), extraQuery: extra.value.trim(), audio: audio.value, directorUserId: director.value, slots, quality: quality.value, avatars, roomLayout: roomLayout.value };
+      return { roomId: room.value.trim(), extraQuery: extra.value.trim(), audio: audio.value, directorUserId: director.value, slots, quality: quality.value, avatars, roomLayout: roomLayout.value, theme: theme.value };
     };
     this._saveDraft = async () => {
       if (JSON.stringify(worldConfig()) !== JSON.stringify(this._baseConfig)) throw new Error("Outro GM alterou a configuração. Feche e reabra o painel antes de salvar.");
@@ -297,7 +317,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
 
   get dirty() {
     if (!this._form) return false;
-    const base = { ...this._baseConfig, quality: this._baseConfig.quality ?? "native", avatars: this._baseConfig.avatars ?? {}, roomLayout: this._baseConfig.roomLayout ?? "native" };
+    const base = { ...this._baseConfig, quality: this._baseConfig.quality ?? "native", avatars: this._baseConfig.avatars ?? {}, roomLayout: this._baseConfig.roomLayout ?? "native", theme: this._baseConfig.theme ?? "modern" };
     return JSON.stringify(this._readDraft()) !== JSON.stringify(base);
   }
 

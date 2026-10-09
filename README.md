@@ -2,7 +2,7 @@
 
 Interface Foundry VTT **v13/v14** para uma **Room oficial VDO.Ninja**. Um iframe local por cliente, Stream IDs estáveis configurados pelo GM e um dock ApplicationV2 próprio. O jogador usa os controles nativos do VDO.Ninja para ativar a câmera e participar.
 
-**Versão de produção: 1.0.3.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
+**Versão de produção: 1.0.4.** Protótipo aprovado pelo usuário em 01/10/2026, com autorização expressa para produção. Compatibilidade declarada: Foundry **v13 e v14** (`minimum: 13`, `verified: 14`, `maximum: 14`). [Aprovação e evidências de teste](docs/PROTOTYPE-RESULTS.md).
 
 A arquitetura vigente está em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). A proposta anterior foi preservada, sem alterações, em [docs/ARCHITECTURE-OLD-MEDIAMTX.md](docs/ARCHITECTURE-OLD-MEDIAMTX.md) **apenas como histórico superado**.
 
@@ -15,9 +15,17 @@ A arquitetura vigente está em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). A p
 5. Cada cliente: a dock abre ao entrar. Para abrir/reabrir manualmente, clique em **Câmeras VDO.Ninja** na aba Configurações da sidebar. O jogador que aguardava um slot entra ao receber a associação salva. Quem já está conectado usa a engrenagem → **Aplicar / reconectar**. A câmera e a permissão são ativadas na UI nativa do VDO.
 6. GM: copie o **Solo link OBS** para a Browser Source (somente visualização). Para quem não consegue entrar pela dock, use a coluna **Entrar pelo navegador** e o ícone de copiar: esse link permite publicar a própria câmera com nome, Room e Stream ID salvos e tenta incorporar o avatar. Envie o link somente ao jogador, que deve **fechar a dock embutida** antes de abrir o navegador para evitar duplicidade de publicação. Ao alterar Room, senha, ID ou avatar, salve primeiro e copie novamente o link.
 
-O [repositório](https://github.com/henriquebot/rpgup-vdo-ninja) contém o código e o manifest vigentes na `main`. A partir de **v1.0.3**, o GitHub Release inclui os assets **module.json** e **rpgup-vdo-ninja.zip**. A instalação automática usa o manifest fixo da `main`, apontando para o ZIP de uma release versionada. O workflow de GitHub Actions publica a versão após passar pelos testes na `main`.
+O [repositório](https://github.com/henriquebot/rpgup-vdo-ninja) contém o código e o manifest vigentes na `main`. A partir de **v1.0.4**, o GitHub Release inclui os assets **module.json** e **rpgup-vdo-ninja.zip**. A instalação automática usa o manifest fixo da `main`, apontando para o ZIP de uma release versionada. O workflow de GitHub Actions publica a versão após passar pelos testes na `main`.
 
 Para instalação manual de desenvolvimento, execute `npm run package` com Node.js 20+ e copie `dist/rpgup-vdo-ninja` para `<User Data>/Data/modules/rpgup-vdo-ninja`. Uma nova versão atualiza `module.json`/`package.json` e seu link de distribuição.
+
+## Nomes, temas e indicadores de fala
+
+- O nome de cada câmera vem de **Usuários do Foundry** e aparece por padrão no VDO.Ninja com `showlabels=rounded`. Não precisa preencher nomes manualmente.
+- GM: clique em **Configurar mesa → Aparência (paleta)** e escolha entre Sem bordas, Sci-fi, Moderno, Neon, Rústico ou Fantástico. Moderno é padrão. Cada moldura tenta usar a cor **Color** definida no perfil do respectivo usuário Foundry (uma por Stream ID), com cor neutra se o perfil não tiver cor válida.
+- Com **áudio nativo VDO** a borda pode engrossar suavemente quando o medidor oficial detectar uma pessoa falando. **Áudio por Discord:** o VDO recebe áudio desativado, portanto **não consegue detectar falantes no Discord**. Isso não exige permissões ou integrações adicionais.
+- CSS e rótulos são aplicados nas entradas de participantes, incluindo links de navegador externo. OBS solo permanece limpo para preservar cenas existentes. As classes das câmeras pertencem ao VDO e precisam ser validadas após atualizações upstream.
+- Os avatares da câmera desligada são redimensionados com maior nitidez que versões anteriores, usando WebP até 640px e limite de tamanho para a URL. O avatar original do Foundry continua intacto; alguns arquivos muito pesados podem precisar de uma imagem mais simples.
 
 ## Uso e limites
 

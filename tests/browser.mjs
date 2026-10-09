@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const { chromium } = await import(process.env.PLAYWRIGHT_PACKAGE ? pathToFileURL(process.env.PLAYWRIGHT_PACKAGE).href : "playwright");
 const root = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 const mime = { ".js": "text/javascript", ".mjs": "text/javascript", ".html": "text/html", ".css": "text/css" };
-const avatarSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" fill="#285b8a"/><circle cx="64" cy="64" r="42" fill="#e9b35a"/></svg>';
+const avatarSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="#285b8a"/><circle cx="256" cy="256" r="190" fill="#e9b35a"/></svg>';
 const server = createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
@@ -81,8 +81,20 @@ try {
   const initial = navigations;
   const initialURL = await page.locator("iframe").getAttribute("src");
   assert.equal(new URL(initialURL).searchParams.get("push"), "slot_gm");
+  assert.equal(new URL(initialURL).searchParams.get("showlabels"), "rounded");
+  const initialCSS = decodeURIComponent(atob(new URL(initialURL).searchParams.get("base64css")));
+  assert.match(initialCSS, /#d3a45a/);
+  assert.match(initialCSS, /#3399cc/);
+  assert.doesNotMatch(initialCSS, /data-speaking/, "Discord does not provide VDO voice activity");
   assert.ok(new URL(initialURL).searchParams.get("avatar").startsWith("data:image/webp;base64,"), "Avatar sem CORS vira uma imagem autossuficiente");
-  assert.ok(initialURL.length < 8000);
+  const preparedDimensions = await page.evaluate(async src => {
+    const img = new Image();
+    img.src = src;
+    await img.decode();
+    return [img.naturalWidth, img.naturalHeight];
+  }, new URL(initialURL).searchParams.get("avatar"));
+  assert.ok(preparedDimensions[0] >= 384 && preparedDimensions[1] >= 384, "Avatar de alta resolução não pode encolher indevidamente");
+  assert.ok(initialURL.length < 26000, "URL com avatar nítido e CSS ainda tem limite de segurança");
   assert.equal(await page.locator('[name="Câmera padrão"], [name="Interface VDO"], [name="Self-preview"]').count(), 0);
   await dockTab(page, "window");
   assert.match(await page.getByRole("checkbox").getAttribute("title"), /não liga sua câmera/);
@@ -127,6 +139,13 @@ try {
   await page.getByRole("button", { name: "Configurar mesa", exact: true }).click();
   await page.locator(".rpgup-config-form").waitFor();
   assert.equal(await page.locator("#rpgup-world-tab-general").getAttribute("aria-selected"), "true");
+  await worldTab(page, "appearance");
+  assert.equal(await page.getByRole("combobox", { name: "theme" }).inputValue(), "modern");
+  for (const value of ["scifi", "neon", "rustic", "fantasy", "none", "modern"]) {
+    await page.getByRole("combobox", { name: "theme" }).selectOption(value);
+  }
+  assert.match(await page.locator("#rpgup-world-pane-appearance").innerText(), /Discord não informa/);
+  await worldTab(page, "general");
   await page.locator("#rpgup-vdo-world-config [aria-label='Iniciar tour guiado']").click();
   assert.match(await page.locator("#rpgup-vdo-world-config .rpgup-tour").innerText(), /sala/i);
   await page.locator("#rpgup-vdo-world-config .rpgup-tour-close").click();
@@ -210,6 +229,9 @@ try {
   assert.equal(director.searchParams.get("roombitrate"), "200");
   assert.equal(director.searchParams.get("maxframerate"), "20");
   assert.equal(director.searchParams.get("cover"), "");
+  assert.equal(director.searchParams.get("showlabels"), "rounded");
+  assert.equal(director.searchParams.get("meterstyle"), "3");
+  assert.match(decodeURIComponent(atob(director.searchParams.get("base64css"))), /data-speaking="2"/);
   assert.equal(director.searchParams.has("structure"), false);
   await page.evaluate(() => { globalThis.layoutFrame = document.querySelector("iframe"); });
   const layoutLoads = navigations;

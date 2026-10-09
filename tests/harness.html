@@ -27,9 +27,9 @@ globalThis.Hooks = {
 };
 const prefs = {};
 const users = [
-  { id: "gm1", name: "GM Teste", isGM: true, avatar: "users/avatar-gm.webp" },
-  { id: "p1", name: "Jogador A", isGM: false },
-  { id: "p2", name: "Jogador B", isGM: false }
+  { id: "gm1", name: "GM Teste", isGM: true, avatar: "users/avatar-gm.webp", color: "#d3a45a" },
+  { id: "p1", name: "Jogador A", isGM: false, color: "#3399cc" },
+  { id: "p2", name: "Jogador B", isGM: false, color: "#ee7788" }
 ].map(user => ({ ...user,
   getFlag() { return prefs[user.id] ?? JSON.parse(localStorage.getItem(`prefs-${user.id}`) ?? "null"); },
   async setFlag(scope, key, value) { prefs[user.id] = structuredClone(value); localStorage.setItem(`prefs-${user.id}`, JSON.stringify(value)); Hooks.callAll("updateUser", this, { flags: { [scope]: { [key]: value } } }); }

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { fillMissingSlots, validateWorld, parseExtraQuery, normalizePrefs, dockPosition, suggestRoomId } from "../src/config.js";
 import { participantURL, soloURL, obsExport } from "../src/urls.js";
+import { themeCSS, foundryUserColor } from "../src/theme.js";
 
 const users = [
   { id: "gm1", name: "Henrique", isGM: true },
@@ -20,6 +21,8 @@ test("1 GM e 2 jogadores entram na mesma Room com labels e push do Foundry", () 
     assert.equal(url.searchParams.get("room"), world.roomId);
     assert.equal(url.searchParams.get("push"), world.slots[user.id]);
     assert.equal(url.searchParams.get("label"), user.name);
+    assert.equal(url.searchParams.get("showlabels"), "rounded");
+    assert.ok(url.searchParams.has("base64css"), "Tema padrão moderno aplica molduras");
     for (const key of ["autostart", "cleanoutput", "view", "scene", "director"]) assert.equal(url.searchParams.has(key), false);
   }
 });
@@ -182,4 +185,42 @@ test("Room ID inicial é derivada do título do mundo sem alterar salas salvas",
   assert.equal(suggestRoomId({ title: "!!!", id: "world123" }), "MesaVDO");
   assert.equal(suggestRoomId({ title: "A".repeat(80) }).length, 49);
   assert.match(suggestRoomId({ title: "Ção — Vórtice" }), /^[A-Za-z0-9]{1,49}$/);
+});
+
+test("temas usam cor do usuário e data-speaking somente com áudio VDO", () => {
+  const colorUsers = [
+    { ...users[0], color: "#12aB78" },
+    { ...users[1], color: { css: "#fab" } },
+    { ...users[2], color: "not-a-color" }
+  ];
+  const css = themeCSS(world, colorUsers);
+  assert.match(css, /--rpgup-color:#12aB78/);
+  assert.match(css, /--rpgup-color:#ffaabb/);
+  assert.match(css, /--rpgup-color:#a5a5b2/);
+  assert.match(css, /slot_a81k2/);
+  assert.doesNotMatch(css, /data-speaking/);
+  const vdo = { ...world, audio: "vdo", theme: "neon" };
+  const url = new URL(participantURL(vdo, colorUsers[0], {}, colorUsers));
+  assert.equal(url.searchParams.get("meterstyle"), "3");
+  const encoded = url.searchParams.get("base64css");
+  const restored = decodeURIComponent(atob(encoded));
+  assert.match(restored, /data-speaking="2"/);
+  assert.match(restored, /--rpgup-color:#12aB78/);
+  assert.equal(url.searchParams.get("showlabels"), "rounded");
+  assert.equal(foundryUserColor({ color: "#abc" }), "#aabbcc");
+  assert.equal(foundryUserColor({ color: "red;}" }), "#a5a5b2");
+});
+
+test("sem tema mantém nomes mas não adiciona estilos nem medidor", () => {
+  const config = { ...world, theme: "none", audio: "vdo" };
+  const url = new URL(participantURL(config, users[0], {}, users));
+  assert.equal(url.searchParams.get("showlabels"), "rounded");
+  assert.equal(url.searchParams.has("base64css"), false);
+  assert.equal(url.searchParams.has("meterstyle"), false);
+  assert.equal(themeCSS(config, users), "");
+  for (const theme of ["scifi", "modern", "neon", "rustic", "fantasy", "none"]) {
+    assert.equal(validateWorld({ ...world, theme }, users).theme, theme);
+  }
+  assert.throws(() => validateWorld({ ...world, theme: "background-image:evil" }, users), /Tema/);
+  assert.equal(new URL(soloURL({ ...world, theme: "neon" }, users[0].id, users)).searchParams.has("base64css"), false);
 });

@@ -24,8 +24,10 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("updateUser", (user, changes) => {
-  if (["name", "role", "avatar"].some(key => changes[key] !== undefined)) WorldConfig.instance?.refreshUsers();
-  if (user.id === game.user.id && ["name", "role", "avatar"].some(key => changes[key] !== undefined)) {
+  // User color is used on every peer's camera tile. A reconnection is required
+  // for the viewer's VDO stylesheet to reflect another player's changed color.
+  if (["name", "role", "avatar", "color"].some(key => changes[key] !== undefined)) {
+    WorldConfig.instance?.refreshUsers();
     RoomDock.instance?.configChanged();
   }
 });
