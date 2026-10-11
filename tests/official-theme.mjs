@@ -33,8 +33,16 @@ try {
     computed: Array.from(document.querySelectorAll(".tile")).map(node => ({
       outline: getComputedStyle(node).outlineStyle,
       shadow: getComputedStyle(node).boxShadow
-    }))
+    })),
+    fakeFeedParents: session.fakeFeeds.map(video => {
+      const nodes = [];
+      for (let n = video, i = 0; n && i < 5; n = n.parentElement, i++) {
+        nodes.push({ tag: n.tagName, id: n.id, cls: typeof n.className === "string" ? n.className : "", shadow: getComputedStyle(n).boxShadow });
+      }
+      return nodes;
+    })
   }));
+  console.log("Official VDO DOM probe:", JSON.stringify(result));
   assert.ok(result.tileCount >= 2, "Official renderer must have tile wrappers for the themed cameras");
   assert.ok(result.computed.some(tile => tile.shadow !== "none"), "Sci-fi glow must reach real VDO camera wrappers");
   assert.ok(result.computed.some(tile => tile.outline !== "none"), "Border CSS must reach actual video tiles");
