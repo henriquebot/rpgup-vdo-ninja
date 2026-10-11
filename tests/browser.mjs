@@ -208,7 +208,7 @@ try {
   assert.equal(await page.locator('input[name="filter_noiseGate"]').isChecked(), true);
   await page.getByRole("combobox", { name: "audioFilterPreset" }).selectOption("custom");
   await page.locator('input[name="filter_noiseGate"]').uncheck();
-  assert.equal((await page.evaluate(() => fixture.config())).audioFilters, undefined, "Audio changes don't auto-save or change legacy world");
+  assert.equal((await page.evaluate(() => fixture.config())).audioFilters.preset, "voice", "Audio changes do not auto-save");
   await page.getByRole("combobox", { name: "audioFilterPreset" }).selectOption("voice");
   await worldTab(page, "general");
   await page.locator("#rpgup-vdo-world-config [aria-label='Iniciar tour guiado']").click();
