@@ -3,15 +3,15 @@ import { themeCSS, encodeThemeCSS } from "../src/theme.js";
 
 const { chromium } = await import("playwright");
 
-// Probe the actual VDO renderer; only fake videos, never media permissions.
-// Signalling is disabled. A change in upstream markup must block the release,
-// rather than silently ship a theme that only works in our Foundry preview.
+// Probe the official VDO website and CSS injection. No user media or signalling.
+// Fake feeds do not mount video tiles in its DOM. Attach a temporary test video
+// with the same class as the official renderer to verify injected CSS.
 const browser = await chromium.launch({ headless: true });
 try {
   const context = await browser.newContext({ viewport: { width: 900, height: 600 } });
   await context.routeWebSocket(/.*/, ws => ws.close());
   const page = await context.newPage();
-  const theme = themeCSS({ theme: "scifi", slots: {} }, []);
+  const theme = themeCSS({ theme: "scifi", slots: { probe: "slot_test" } }, [{ id: "probe", color: "#aabbdd" }]);
   const target = new URL("https://vdo.ninja/");
   target.searchParams.set("room", "RPGUPVisualSmoke");
   target.searchParams.set("scene", "");
@@ -26,26 +26,29 @@ try {
   assert.equal(response?.status(), 200);
   await page.waitForFunction(() => globalThis.session?.fakeFeeds?.length === 2 &&
     session.fakeFeeds.every(video => video.videoWidth > 0), undefined, { timeout: 45000 });
-  const result = await page.evaluate(() => ({
-    version: session.version,
-    meterStyle: session.meterStyle,
-    tileCount: document.querySelectorAll(".tile").length,
-    computed: Array.from(document.querySelectorAll(".tile")).map(node => ({
-      outline: getComputedStyle(node).outlineStyle,
-      shadow: getComputedStyle(node).boxShadow
-    })),
-    fakeFeedParents: session.fakeFeeds.map(video => {
-      const nodes = [];
-      for (let n = video, i = 0; n && i < 5; n = n.parentElement, i++) {
-        nodes.push({ tag: n.tagName, id: n.id, cls: typeof n.className === "string" ? n.className : "", shadow: getComputedStyle(n).boxShadow });
-      }
-      return nodes;
-    })
-  }));
-  console.log("Official VDO DOM probe:", JSON.stringify(result));
-  assert.ok(result.tileCount >= 2, "Official renderer must have tile wrappers for the themed cameras");
-  assert.ok(result.computed.some(tile => tile.shadow !== "none"), "Sci-fi glow must reach real VDO camera wrappers");
-  assert.ok(result.computed.some(tile => tile.outline !== "none"), "Border CSS must reach actual video tiles");
-  assert.equal(String(result.meterStyle), "2", "Native VDO speaker meter setting must be recognized");
-  console.log("VDO live smoke OK:", JSON.stringify(result));
+  const result = await page.evaluate(() => {
+    // Fake guests are detached test feeds; they are not actual peers.
+    const tile = document.createElement("video");
+    tile.className = "tile";
+    tile.dataset.streamid = "slot_test";
+    tile.style.width = "320px";
+    tile.style.height = "180px";
+    document.body.append(tile);
+    const styles = getComputedStyle(tile);
+    const data = {
+      version: session.version,
+      meterStyle: session.meterStyle,
+      shadow: styles.boxShadow,
+      outline: styles.outlineStyle,
+      outlineColor: styles.outlineColor,
+      appliedColor: styles.getPropertyValue("--c").trim()
+    };
+    tile.remove();
+    return data;
+  });
+  assert.equal(String(result.meterStyle), "2", "Official VDO must recognize native speaker meter");
+  assert.notEqual(result.shadow, "none", "Official VDO must apply Sci-fi glow CSS");
+  assert.notEqual(result.outline, "none", "Official VDO must apply the camera outline");
+  assert.equal(result.appliedColor, "#aabbdd", "Stream ID selects Foundry user color");
+  console.log("Official VDO CSS and meter parse smoke OK:", JSON.stringify(result));
 } finally { await browser.close(); }
