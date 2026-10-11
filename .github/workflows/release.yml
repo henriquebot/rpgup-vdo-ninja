@@ -27,6 +27,9 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run ApplicationV2 browser fixture
         run: npm run test:browser
+      - name: Check actual VDO.Ninja camera theme compatibility
+        timeout-minutes: 3
+        run: node tests/official-theme.mjs
 
   release:
     name: Publish GitHub Release assets
