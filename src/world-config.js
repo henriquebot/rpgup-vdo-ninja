@@ -1,4 +1,4 @@
-import { MODULE_ID, fillMissingSlots, validateWorld, normalizePrefs, suggestRoomId, QUALITY_PRESETS, ROOM_LAYOUTS, CAMERA_THEMES } from "./config.js";
+import { MODULE_ID, fillMissingSlots, validateWorld, normalizePrefs, suggestRoomId, QUALITY_PRESETS, ROOM_LAYOUTS, CAMERA_THEMES, AUDIO_FILTER_PRESETS, audioFilterPreset, validateAudioFilters } from "./config.js";
 import { worldConfig, saveWorld } from "./settings.js";
 import { participantURL, soloURL, obsExport, avatarURLBudget } from "./urls.js";
 import { prepareAvatar } from "./avatar.js";
@@ -65,6 +65,53 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     const quality = select(Object.fromEntries(Object.entries(QUALITY_PRESETS).map(([key, value]) => [key, value.label])), config.quality ?? "native", "quality");
     const roomLayout = select(ROOM_LAYOUTS, config.roomLayout ?? "native", "roomLayout");
     const theme = select(CAMERA_THEMES, config.theme ?? "modern", "theme");
+    const filters = validateAudioFilters(config.audioFilters);
+    const filterPreset = select(AUDIO_FILTER_PRESETS, filters.preset, "audioFilterPreset");
+    const filterDescriptions = {
+      denoise: ["Redução de ruído", "Diminui ruídos contínuos do ambiente. Nem todo ruído ou teclado será eliminado."],
+      echoCancellation: ["Cancelamento de eco", "Reduz o retorno do som das caixas de áudio para o microfone. Recomendado sem fones."],
+      autoGain: ["Ganho automático", "Ajusta o volume do microfone ao falar baixo ou alto. Pode elevar o ruído quando ninguém fala."],
+      noiseGate: ["Portão de ruído (agressivo)", "Abaixa o volume durante o silêncio, mas pode cortar palavras curtas. Use para ambientes muito barulhentos."],
+      compressor: ["Compressor", "Diminui as diferenças entre trechos altos e baixos; pode alterar a naturalidade da voz."]
+    };
+    const filterControls = new Map();
+    const filterGrid = element("div", undefined, { class: "rpgup-audio-filter-grid" });
+    for (const [key, [name, description]] of Object.entries(filterDescriptions)) {
+      const control = element("input", undefined, { type: "checkbox", name: "filter_" + key, "aria-label": name });
+      control.checked = filters[key];
+      tooltip(control, description);
+      const label = element("label", undefined, { class: "rpgup-audio-filter-toggle" });
+      label.append(control, element("span", name));
+      tooltip(label, description);
+      filterGrid.append(label);
+      filterControls.set(key, control);
+    }
+    const filterLowcut = select({ "0": "Desligado", "80": "80 Hz", "100": "100 Hz", "120": "120 Hz", "150": "150 Hz", "180": "180 Hz", "200": "200 Hz" }, String(filters.lowcutHz), "audioLowcut");
+    const filterNotice = element("p", "", { class: "rpgup-help", role: "status" });
+    const togglePreset = () => {
+      if (filterPreset.value !== "custom") {
+        const settings = audioFilterPreset(filterPreset.value);
+        for (const [key, control] of filterControls) control.checked = settings[key];
+        filterLowcut.value = String(settings.lowcutHz);
+      }
+      for (const control of filterControls.values()) control.disabled = filterPreset.value !== "custom";
+      filterLowcut.disabled = filterPreset.value !== "custom";
+      filterNotice.textContent = audio.value === "discord"
+        ? "A mesa está usando Discord. Estes filtros ficam preparados, mas não são aplicados nem ativam o microfone do VDO."
+        : "O filtro atua no microfone do VDO.Ninja, antes da transmissão. Salve e peça para os participantes reconectarem. Pode variar conforme o navegador.";
+    };
+    filterPreset.addEventListener("change", togglePreset);
+    audio.addEventListener("change", togglePreset);
+    togglePreset();
+    const audioFiltersPanel = element("div", undefined, { class: "rpgup-tab-section" });
+    audioFiltersPanel.append(
+      element("p", "Perfis de tratamento do microfone VDO.Ninja. Voz limpa vem como padrão e usa redução de ruído, cancelamento de eco e ganho automático. Não equivale ao filtro Krisp do Discord.", { class: "rpgup-help" }),
+      field("Perfil de tratamento", filterPreset, "O mestre escolhe o tratamento de áudio compartilhado. Voz limpa é o padrão; Reforçado ativa também portão de ruído e compressor."),
+      filterGrid,
+      field("Corte de ruídos graves", filterLowcut, "Filtro passa-altas: reduz vibrações e sons graves abaixo da frequência escolhida. Pode retirar corpo da voz."),
+      filterNotice,
+      element("p", "O navegador pode exigir permissão de microfone. Se usar fones, o cancelamento de eco geralmente continua seguro. O portão de ruído pode cortar o começo de frases; desligue se acontecer.", { class: "rpgup-help" })
+    );
     const qualityHelp = element("p", QUALITY_PRESETS[quality.value].help, { class: "rpgup-help", role: "status" });
     quality.addEventListener("change", () => { qualityHelp.textContent = QUALITY_PRESETS[quality.value].help; });
     const intro = element("div", undefined, { class: "rpgup-intro" });
@@ -324,6 +371,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
         { key: "general", title: "Sala e qualidade", icon: "fa-house", children: [general] },
         { key: "participants", title: "Participantes e links", icon: "fa-users", children: [participants] },
         { key: "appearance", title: "Aparência das câmeras", icon: "fa-palette", children: [appearance] },
+        { key: "audioFilters", title: "Tratamento de áudio", icon: "fa-headphones", children: [audioFiltersPanel] },
         { key: "advanced", title: "Parâmetros avançados", icon: "fa-sliders", children: [advanced] },
         { key: "help", title: "Ajuda e primeiros passos", icon: "fa-circle-question", children: [help] },
         ...personal.tabs
@@ -335,6 +383,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
         { tab: "participants", target: () => generate, text: "Gere e salve somente os IDs dos jogadores que ainda não têm um." },
         { tab: "participants", target: () => tableWrap, text: "Aqui ficam o link OBS de visualização e o link para entrar diretamente no navegador." },
         { tab: "appearance", target: () => theme, text: "O mestre escolhe o tema ou Sem bordas. A cor principal de cada câmera usa a cor configurada pelo respectivo usuário Foundry." },
+        { tab: "audioFilters", target: () => filterPreset, text: "O perfil Voz limpa usa os filtros de microfone oficiais do VDO. Escolha Personalizado para ajustar cada filtro." },
         { tab: "advanced", target: () => extra, text: "Parâmetros extras são opcionais. Use apenas se sua mesa realmente precisar." },
         { tab: "help", target: () => help, text: "Consulte esta ajuda quando quiser lembrar a diferença entre OBS e entrada externa." },
         { tab: "general", target: () => save, text: "Salve as mudanças. Depois use Aplicar / reconectar na guia Conexão." },
@@ -355,7 +404,16 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
         if (value) avatars[userId] = value;
         else delete avatars[userId];
       }
-      return { roomId: room.value.trim(), extraQuery: extra.value.trim(), audio: audio.value, directorUserId: director.value, slots, quality: quality.value, avatars, roomLayout: roomLayout.value, theme: theme.value };
+      return {
+        roomId: room.value.trim(), extraQuery: extra.value.trim(), audio: audio.value,
+        audioFilters: validateAudioFilters({
+          preset: filterPreset.value,
+          ...Object.fromEntries(Array.from(filterControls, ([key, control]) => [key, control.checked])),
+          lowcutHz: Number(filterLowcut.value)
+        }),
+        directorUserId: director.value, slots, quality: quality.value, avatars,
+        roomLayout: roomLayout.value, theme: theme.value
+      };
     };
     this._saveDraft = async () => {
       if (JSON.stringify(worldConfig()) !== JSON.stringify(this._baseConfig)) throw new Error("Outro GM alterou a configuração. Feche e reabra o painel antes de salvar.");
@@ -385,7 +443,7 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
 
   get dirty() {
     if (!game.user.isGM || !this._form) return false;
-    const base = { ...this._baseConfig, quality: this._baseConfig.quality ?? "native", avatars: this._baseConfig.avatars ?? {}, roomLayout: this._baseConfig.roomLayout ?? "native", theme: this._baseConfig.theme ?? "modern" };
+    const base = { ...this._baseConfig, quality: this._baseConfig.quality ?? "native", avatars: this._baseConfig.avatars ?? {}, roomLayout: this._baseConfig.roomLayout ?? "native", theme: this._baseConfig.theme ?? "modern", audioFilters: validateAudioFilters(this._baseConfig.audioFilters) };
     return JSON.stringify(this._readDraft()) !== JSON.stringify(base);
   }
 

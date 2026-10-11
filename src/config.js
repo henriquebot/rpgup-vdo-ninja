@@ -28,7 +28,46 @@ export const QUALITY_PRESETS = {
   balanced: { label: "Equilibrado · 500 kbps", help: "Limita cada vídeo enviado aos jogadores a 500 kbps e captura a até 30 fps. A qualidade efetiva é adaptativa.", params: { roombitrate: "500", maxframerate: "30" } },
   detail: { label: "Mais detalhe · 1.200 kbps", help: "Permite até 1.200 kbps por vídeo para jogadores e captura a até 30 fps. O orçamento da Room e a conexão ainda limitam a qualidade; pode exigir ajuste pelo Director.", params: { roombitrate: "1200", maxframerate: "30" } }
 };
-export const DEFAULT_WORLD = { roomId: "", extraQuery: "", audio: "discord", directorUserId: "", slots: {}, quality: "native", avatars: {}, roomLayout: "native", theme: "modern" };
+// These are VDO's browser-side filters, not a replacement for Discord Krisp.
+// Discord rooms keep their existing noaudio behaviour; filters are applied
+// only to the publisher microphone when native VDO audio is selected.
+export const AUDIO_FILTER_PRESETS = {
+  voice: "Voz limpa · recomendado",
+  enhanced: "Redução reforçada · ambientes barulhentos",
+  off: "Desligado · áudio sem filtros extras",
+  custom: "Personalizado"
+};
+export const DEFAULT_AUDIO_FILTERS = Object.freeze({
+  preset: "voice",
+  denoise: true, echoCancellation: true, autoGain: true,
+  noiseGate: false, compressor: false, lowcutHz: 0
+});
+const AUDIO_PRESET_SETTINGS = Object.freeze({
+  voice: { denoise: true, echoCancellation: true, autoGain: true, noiseGate: false, compressor: false, lowcutHz: 0 },
+  enhanced: { denoise: true, echoCancellation: true, autoGain: true, noiseGate: true, compressor: true, lowcutHz: 100 },
+  off: { denoise: false, echoCancellation: false, autoGain: false, noiseGate: false, compressor: false, lowcutHz: 0 }
+});
+export function audioFilterPreset(preset) {
+  if (!Object.hasOwn(AUDIO_FILTER_PRESETS, preset)) throw new Error("Preset de áudio inválido.");
+  return { preset, ...(AUDIO_PRESET_SETTINGS[preset] ?? AUDIO_PRESET_SETTINGS.voice) };
+}
+export function validateAudioFilters(input) {
+  if (input === undefined || input === null) return { ...DEFAULT_AUDIO_FILTERS };
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Filtros de áudio inválidos.");
+  const preset = input.preset ?? "voice";
+  if (!Object.hasOwn(AUDIO_FILTER_PRESETS, preset)) throw new Error("Preset de áudio inválido.");
+  const result = { ...audioFilterPreset(preset) };
+  if (preset !== "custom") return result;
+  for (const key of ["denoise", "echoCancellation", "autoGain", "noiseGate", "compressor"]) {
+    if (typeof input[key] !== "boolean") throw new Error(`Filtro ${key}: escolha ligado ou desligado.`);
+    result[key] = input[key];
+  }
+  const lowcut = Number(input.lowcutHz);
+  if (!Number.isInteger(lowcut) || ![0, 80, 100, 120, 150, 180, 200].includes(lowcut)) throw new Error("Corte de graves: escolha uma frequência permitida.");
+  result.lowcutHz = lowcut;
+  return result;
+}
+export const DEFAULT_WORLD = { roomId: "", extraQuery: "", audio: "discord", audioFilters: { ...DEFAULT_AUDIO_FILTERS }, directorUserId: "", slots: {}, quality: "native", avatars: {}, roomLayout: "native", theme: "modern" };
 export const DEFAULT_PREFS = {
   dock: "left", autoOpen: true,
   zoom: 1, avatar: "foundry", avatarURL: "",
@@ -93,7 +132,8 @@ export function validateWorld(input, users = []) {
     if (!["http:", "https:"].includes(source.protocol) || source.username || source.password) throw new Error(`Avatar de ${userId}: use um caminho Foundry ou URL HTTP/HTTPS sem credenciais.`);
     avatars[userId] = image.trim();
   }
-  return { roomId, extraQuery: input.extraQuery.trim(), audio: input.audio, directorUserId, slots, quality, avatars, roomLayout, theme };
+  const audioFilters = validateAudioFilters(input.audioFilters);
+  return { roomId, extraQuery: input.extraQuery.trim(), audio: input.audio, audioFilters, directorUserId, slots, quality, avatars, roomLayout, theme };
 }
 
 export function fillMissingSlots(slots, users, randomBytes = size => crypto.getRandomValues(new Uint8Array(size))) {

@@ -199,6 +199,17 @@ try {
   assert.equal(await page.locator('input[name="extraQuery"]').inputValue(), "password=Fixture123");
   await worldTab(page, "appearance");
   assert.equal(await page.getByRole("button", { name: "Simular fala na prévia" }).isDisabled(), true);
+  await worldTab(page, "audioFilters");
+  assert.equal(await page.getByRole("combobox", { name: "audioFilterPreset" }).inputValue(), "voice", "Legacy worlds start with safe voice preset");
+  assert.match(await page.locator("#rpgup-world-pane-audioFilters").innerText(), /Discord/);
+  assert.equal(await page.locator('input[name="filter_denoise"]').isChecked(), true);
+  assert.equal(await page.locator('input[name="filter_noiseGate"]').isChecked(), false);
+  await page.getByRole("combobox", { name: "audioFilterPreset" }).selectOption("enhanced");
+  assert.equal(await page.locator('input[name="filter_noiseGate"]').isChecked(), true);
+  await page.getByRole("combobox", { name: "audioFilterPreset" }).selectOption("custom");
+  await page.locator('input[name="filter_noiseGate"]').uncheck();
+  assert.equal((await page.evaluate(() => fixture.config())).audioFilters.preset, "voice", "Audio changes do not auto-save");
+  await page.getByRole("combobox", { name: "audioFilterPreset" }).selectOption("voice");
   await worldTab(page, "general");
   await page.locator("#rpgup-vdo-world-config [aria-label='Iniciar tour guiado']").click();
   assert.match(await page.locator("#rpgup-vdo-world-config .rpgup-tour").innerText(), /sala/i);
@@ -227,6 +238,9 @@ try {
   assert.equal(await page.getByRole("button", { name: "Copiar link de entrada de Jogador A" }).isEnabled(), true);
   await worldTab(page, "general");
   await page.getByRole("combobox", { name: "audio", exact: true }).selectOption("vdo");
+  await worldTab(page, "audioFilters");
+  assert.match(await page.locator("#rpgup-world-pane-audioFilters").innerText(), /microfone do VDO/);
+  await page.getByRole("combobox", { name: "audioFilterPreset" }).selectOption("enhanced");
   await worldTab(page, "appearance");
   const talking = page.getByRole("button", { name: "Simular fala na prévia" });
   assert.equal(await talking.isEnabled(), true);
@@ -243,6 +257,7 @@ try {
   await page.getByRole("button", { name: "Salvar configuração", exact: true }).click();
   await page.waitForFunction(() => fixture.config().audio === "vdo");
   assert.equal((await page.evaluate(() => fixture.config())).quality, "economy");
+  assert.equal((await page.evaluate(() => fixture.config())).audioFilters.preset, "enhanced");
   assert.equal((await page.evaluate(() => fixture.config())).roomLayout, "compact");
   await worldTab(page, "general");
   assert.equal(await page.getByRole("combobox", { name: "roomLayout", exact: true }).inputValue(), "compact");
@@ -255,6 +270,10 @@ try {
   assert.equal(updatedJoin.searchParams.get("push"), "slot_a", "Link externo preserva Stream ID");
   assert.equal(updatedJoin.searchParams.get("label"), "Jogador A");
   assert.equal(updatedJoin.searchParams.has("noaudio"), false, "Link externo segue áudio VDO configurado");
+  assert.equal(updatedJoin.searchParams.get("denoise"), "1");
+  assert.equal(updatedJoin.searchParams.get("noisegate"), "1");
+  assert.equal(updatedJoin.searchParams.get("lowcut"), "100");
+  assert.ok(updatedJoin.href.length <= 6900);
   assert.ok(updatedJoin.searchParams.get("avatar").startsWith("data:image/"), "Avatar Foundry da mesa incorporado funciona no navegador externo");
   const obsDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Baixar links OBS", exact: true }).click();
@@ -293,6 +312,10 @@ try {
   assert.equal(director.searchParams.get("cover"), "");
   assert.equal(director.searchParams.get("showlabels"), "rounded");
   assert.equal(director.searchParams.get("meterstyle"), "2", "Use official VDO speaker outline");
+  assert.equal(director.searchParams.get("denoise"), "1");
+  assert.equal(director.searchParams.get("echocancellation"), "1");
+  assert.equal(director.searchParams.get("autogain"), "1");
+  assert.equal(director.searchParams.get("noisegate"), "1");
   assert.ok(decodeURIComponent(atob(director.searchParams.get("base64css"))).includes("outline:"));
   assert.ok(director.href.length <= 6900);
   assert.equal(director.searchParams.has("structure"), false);

@@ -1,5 +1,19 @@
 # Histórico de versões
 
+## 1.0.10 — 11/10/2026
+
+- Nova guia **Tratamento de áudio**, com permissão de edição exclusiva para o GM: perfis Voz limpa (padrão), Redução reforçada, Desligado e Personalizado.
+- **Voz limpa** usa filtros nativos VDO.Ninja: denoise=1, echocancellation=1 e autogain=1; sem noise gate ou compressor agressivo.
+- **Reforçado** adiciona noisegate=1, compressor=1 e lowcut=100. O noise gate pode cortar o início de frases; é opcional, nunca padrão.
+- **Personalizado** permite ligar/desligar redução de ruído, cancelamento de eco, ganho automático, noise gate e compressor, além de corte de graves em frequências validadas.
+- Tratamento só vai para os links de **publicação do participante** quando o mestre usa áudio VDO. Salas que já usam Discord permanecem com noaudio e audiodevice=0, sem ligar microfone nem aplicar os filtros.
+- Links externos do jogador seguem as mesmas opções salvas; fontes solo OBS continuam inalteradas. Stream IDs, nomes, avatares, Room e proteções contra HTTP 414 preservados.
+- Configurações antigas sem audioFilters migram implicitamente para o perfil Voz limpa, mas sem alteração no modo Discord; só são persistidas ao salvar a configuração.
+- Sem ponte de chat VDO → Foundry nesta versão. A API permite avaliar isso numa melhoria independente.
+
+**Limites:** filtros de navegador não equivalem ao Krisp do Discord. O VDO usa a disponibilidade de recursos do navegador/dispositivo; reconexão dos participantes é necessária para aplicar o perfil. Validar com microfones reais antes de substituir o Discord na mesa.
+
+
 ## 1.0.9 — 11/10/2026
 
 - Temas Sci-fi e Neon com brilho mais visível nas cores individuais dos usuários Foundry; preserva o teto de URL implementado na v1.0.5.
