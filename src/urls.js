@@ -65,6 +65,17 @@ export function participantURL(world, user, prefs = {}, users = [user], baseURL 
     url.searchParams.set("previewmode", "");
   }
   addExtras(url, config);
+  if (config.audio === "vdo") {
+    // Native VDO microphone processing; no extra media stream, proxy or audio
+    // capture. Works for embedded and browser publisher links, not OBS viewers.
+    const f = config.audioFilters;
+    url.searchParams.set("denoise", f.denoise ? "1" : "0");
+    url.searchParams.set("echocancellation", f.echoCancellation ? "1" : "0");
+    url.searchParams.set("autogain", f.autoGain ? "1" : "0");
+    if (f.noiseGate) url.searchParams.set("noisegate", "1");
+    if (f.compressor) url.searchParams.set("compressor", "1");
+    if (f.lowcutHz) url.searchParams.set("lowcut", String(f.lowcutHz));
+  }
   const avatarUser = { ...user, avatar: config.avatars[user.id] || user.avatar };
   const avatar = preparedAvatar === undefined ? avatarSource(avatarUser, prefs, baseURL) : preparedAvatar;
   if (avatar) url.searchParams.set("avatar", avatar);
