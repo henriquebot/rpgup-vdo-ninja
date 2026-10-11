@@ -45,7 +45,7 @@ export function themeCSS(world, users = []) {
   for (const user of users) {
     const id = world?.slots?.[user.id];
     if (typeof id !== "string" || !/^[A-Za-z0-9_]{1,64}$/.test(id)) continue;
-    css.push(`.tile:has(video[data-streamid="${id}"]),.tile:has(video[data-stream-id="${id}"]){--c:${foundryUserColor(user)}}`);
+    css.push(`video.tile[data-streamid="${id}"],video.tile[data-stream-id="${id}"],video.tile[id="${id}"]{--c:${foundryUserColor(user)}}`);
   }
   // The official &meterstyle=2 handles speaker indication when VDO has audio.
   // CSS does not attempt to infer speech on Discord or override VDO's meter.
