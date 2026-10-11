@@ -174,3 +174,9 @@ body.rpgup-vdo-docked #interface {
 .rpgup-option-entry button { width:25px; min-height:24px!important; height:24px; padding:2px!important; border-radius:50%; }
 .rpgup-option-entry button span { display:none; }
 @media(prefers-reduced-motion:reduce){.rpgup-camera-demo-frame{transition:none;}}
+
+/* Native VDO audio filters. Pure controls: no microphone acquired by Foundry. */
+.rpgup-audio-filter-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:9px; padding:10px; background:var(--rpgup-card); border:1px solid var(--rpgup-line); border-radius:8px; }
+.rpgup-audio-filter-toggle { display:flex; align-items:center; gap:9px; font-size:12px; line-height:1.35; cursor:pointer; }
+.rpgup-audio-filter-toggle input { flex-shrink:0; accent-color:var(--rpgup-accent); }
+.rpgup-audio-filter-toggle:has(input:disabled) { opacity:.75; }
