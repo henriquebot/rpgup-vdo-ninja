@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fillMissingSlots, validateWorld, parseExtraQuery, normalizePrefs, dockPosition, suggestRoomId } from "../src/config.js";
+import { fillMissingSlots, validateWorld, parseExtraQuery, normalizePrefs, dockPosition, suggestRoomId, validateAudioFilters, audioFilterPreset } from "../src/config.js";
 import { participantURL, soloURL, obsExport } from "../src/urls.js";
 import { themeCSS, foundryUserColor, themeVisual } from "../src/theme.js";
 import { VDO_OPTIONS } from "../src/advanced-options.js";
@@ -264,4 +264,61 @@ test("catálogo avançado contém apenas opções da whitelist e deixa chaves cr
   assert.throws(() => parseExtraQuery("push=stolen"), /não permitido/);
   assert.throws(() => parseExtraQuery("noaudio=0"), /não permitido/);
   assert.throws(() => parseExtraQuery("meterstyle=2"), /não permitido/);
+});
+
+test("filtros de microfone são opcionais e não mudam salas legadas Discord", () => {
+  const unchanged = structuredClone(world);
+  const config = validateWorld(world, users);
+  assert.equal(config.audioFilters.preset, "voice");
+  assert.equal(config.audioFilters.denoise, true);
+  assert.deepEqual(world, unchanged, "A configuração antiga não deve ser alterada");
+  const discord = new URL(participantURL(world, users[0], {}, users));
+  for (const key of ["denoise", "echocancellation", "autogain", "noisegate", "compressor", "lowcut"]) {
+    assert.equal(discord.searchParams.has(key), false, key);
+  }
+  assert.equal(discord.searchParams.has("noaudio"), true);
+});
+test("tratamento Voz limpa por padrão no áudio VDO, também para links externos", () => {
+  const config = { ...world, audio: "vdo" };
+  const url = new URL(participantURL(config, users[0], {}, users));
+  assert.equal(url.searchParams.get("denoise"), "1");
+  assert.equal(url.searchParams.get("echocancellation"), "1");
+  assert.equal(url.searchParams.get("autogain"), "1");
+  assert.equal(url.searchParams.has("noisegate"), false);
+  assert.equal(url.searchParams.has("compressor"), false);
+  assert.equal(url.searchParams.has("lowcut"), false);
+  assert.equal(url.searchParams.get("push"), world.slots.gm1);
+  assert.equal(url.searchParams.get("label"), users[0].name);
+  assert.ok(url.href.length <= 6900);
+  const solo = new URL(soloURL(config, users[0].id, users));
+  for (const key of ["denoise", "echocancellation", "autogain", "noisegate", "compressor", "lowcut"]) assert.equal(solo.searchParams.has(key), false);
+});
+test("perfis podem ser desligados, reforçados ou ajustados pelo mestre", () => {
+  const raw = { ...world, audio: "vdo" };
+  const off = new URL(participantURL({ ...raw, audioFilters: audioFilterPreset("off") }, users[0], {}, users));
+  for (const key of ["denoise", "echocancellation", "autogain"]) assert.equal(off.searchParams.get(key), "0");
+  assert.equal(off.searchParams.has("noisegate"), false);
+  const enhanced = new URL(participantURL({ ...raw, audioFilters: audioFilterPreset("enhanced") }, users[0], {}, users));
+  assert.equal(enhanced.searchParams.get("noisegate"), "1");
+  assert.equal(enhanced.searchParams.get("compressor"), "1");
+  assert.equal(enhanced.searchParams.get("lowcut"), "100");
+  const custom = validateAudioFilters({
+    preset: "custom", denoise: true, echoCancellation: false,
+    autoGain: false, noiseGate: false, compressor: true, lowcutHz: 120
+  });
+  const url = new URL(participantURL({ ...raw, audioFilters: custom }, users[0], {}, users));
+  assert.equal(url.searchParams.get("denoise"), "1");
+  assert.equal(url.searchParams.get("echocancellation"), "0");
+  assert.equal(url.searchParams.get("autogain"), "0");
+  assert.equal(url.searchParams.get("compressor"), "1");
+  assert.equal(url.searchParams.get("lowcut"), "120");
+  assert.ok(url.href.length <= 6900);
+});
+test("rejeita configurações de áudio inválidas sem permitir alterar a Room ou o Stream ID", () => {
+  assert.throws(() => validateAudioFilters({ preset: "unknown" }), /Preset/);
+  assert.throws(() => validateAudioFilters({ preset: "custom", denoise: "on" }), /Filtro/);
+  assert.throws(() => validateAudioFilters({ ...audioFilterPreset("voice"), preset: "custom", lowcutHz: 900 }), /Corte/);
+  assert.throws(() => validateWorld({ ...world, audioFilters: [] }, users), /Filtros/);
+  assert.equal(new URL(participantURL({ ...world, audio: "vdo" }, users[1], {}, users)).searchParams.get("push"), world.slots.p1);
+  assert.throws(() => parseExtraQuery("noaudio=1"), /não permitido/);
 });
