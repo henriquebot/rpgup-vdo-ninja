@@ -152,3 +152,25 @@ body.rpgup-vdo-docked #interface {
 .rpgup-room-dock:not([data-dock="floating"]) > .window-header {
   display: none !important;
 }
+
+/* Theme sandbox preview, no iframe/camera/network access. */
+.rpgup-camera-demo { display:flex; justify-content:center; align-items:center; min-width:0; padding:25px 18px; border:1px solid var(--rpgup-line); border-radius:10px; background:repeating-linear-gradient(45deg,#12151d,#12151d 10px,#1a1d26 10px,#1a1d26 20px); }
+.rpgup-camera-demo-frame { width:min(100%,420px); aspect-ratio:16/9; overflow:hidden; position:relative; display:flex; align-items:center; justify-content:center; isolation:isolate; transition:box-shadow .18s,border-color .18s; }
+.rpgup-camera-demo-screen { position:absolute; inset:7px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:radial-gradient(ellipse at 50% 30%,#546479 0%,#26374b 42%,#111822 100%); }
+.rpgup-camera-demo-screen > i { font-size:clamp(38px,8vw,72px); color:#b9c9d7; opacity:.6; }
+.rpgup-camera-demo-live { position:absolute; right:10px; top:9px; font-size:10px; letter-spacing:1px; background:#131923b0; padding:3px 6px; color:#e0edf7; border-radius:3px; }
+.rpgup-camera-demo-name { z-index:1; position:absolute; bottom:10px; left:12px; color:#fffaf2; padding:5px 9px; border-radius:4px; font-size:12px; font-weight:600; }
+.rpgup-camera-demo-meter { position:absolute; pointer-events:none; inset:4px; border-radius:inherit; border:0 solid transparent; }
+.rpgup-camera-demo-speaking .rpgup-camera-demo-meter { border:3px solid #80f58c; box-shadow:inset 0 0 12px #53f57d90; }
+.rpgup-option-editor { display:flex; flex-direction:column; gap:8px; padding:12px; border-radius:9px; background:var(--rpgup-card); border:1px solid var(--rpgup-line); }
+.rpgup-option-controls { display:flex; flex-wrap:wrap; align-items:end; gap:8px; }
+.rpgup-option-controls .rpgup-field:first-child { flex:1 1 260px; }
+.rpgup-option-controls .rpgup-field { flex:0 1 140px; }
+.rpgup-option-controls .rpgup-field select,.rpgup-option-controls .rpgup-field input { width:100%; min-width:0; }
+.rpgup-option-controls button { width:auto; flex:0 1 auto; }
+.rpgup-option-entries { display:flex; flex-wrap:wrap; gap:7px; }
+.rpgup-option-entry { display:flex; align-items:center; gap:5px; padding:3px 5px 3px 9px; border:1px solid var(--rpgup-line); border-radius:16px; }
+.rpgup-option-entry code { font-size:11px; overflow-wrap:anywhere; }
+.rpgup-option-entry button { width:25px; min-height:24px!important; height:24px; padding:2px!important; border-radius:50%; }
+.rpgup-option-entry button span { display:none; }
+@media(prefers-reduced-motion:reduce){.rpgup-camera-demo-frame{transition:none;}}

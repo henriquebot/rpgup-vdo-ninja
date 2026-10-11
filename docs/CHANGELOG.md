@@ -1,5 +1,16 @@
 # Histórico de versões
 
+## 1.0.9 — 11/10/2026
+
+- Temas Sci-fi e Neon com brilho mais visível nas cores individuais dos usuários Foundry; preserva o teto de URL implementado na v1.0.5.
+- Aba Aparência com prévia de câmera, nome de exemplo e troca imediata do tema, incluindo uma simulação local de fala sem abrir câmera ou microfone.
+- Usa o contorno de fala oficial do VDO com meterstyle=2 (antes, meterstyle=4 não desenhava destaque). Apenas no áudio VDO, quando o tema está ligado. Áudio pelo Discord não detecta fala dentro do VDO.Ninja.
+- Aba Avançado oferece um catálogo dos parâmetros oficiais comuns já autorizados, tooltip explicativo, validação de valor e adição/remoção, mantendo o campo manual para usuários experientes.
+- Configurações e slots anteriores, links de entrada, exportação OBS, nomes do Foundry e comportamento da conexão permanecem inalterados. O editor avançado não salva automaticamente.
+
+**Importante:** comportamento visual dentro do VDO real precisa de validação com câmera e áudio reais; os testes automatizados isolam mídia externa.
+
+
 ## 1.0.5 — 09/10/2026 (correção crítica)
 
 - Corrige a regressão **414 Request-URI Too Large** da v1.0.4: CSS de temas e avatares WebP codificados juntos ultrapassavam o limite de requisição HTTP do nginx.

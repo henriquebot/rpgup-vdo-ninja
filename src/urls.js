@@ -55,8 +55,9 @@ export function participantURL(world, user, prefs = {}, users = [user], baseURL 
   const css = themeCSS(config, users);
   if (css) url.searchParams.set("base64css", encodeThemeCSS(css));
   if (config.theme !== "none" && config.audio === "vdo") {
-    // Includes VDO data-speaking attributes for a restrained speaking outline.
-    url.searchParams.set("meterstyle", "4");
+    // Official native speaker outline: meterstyle=4 only sets a data attribute
+    // and was invisible in real calls. 2 draws the VDO audio activity border.
+    url.searchParams.set("meterstyle", "2");
   }
   if (config.directorUserId === user.id && user.isGM) {
     url.searchParams.set("director", config.roomId);

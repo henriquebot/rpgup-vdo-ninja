@@ -2,6 +2,8 @@ import { MODULE_ID, fillMissingSlots, validateWorld, normalizePrefs, suggestRoom
 import { worldConfig, saveWorld } from "./settings.js";
 import { participantURL, soloURL, obsExport, avatarURLBudget } from "./urls.js";
 import { prepareAvatar } from "./avatar.js";
+import { themeVisual, foundryUserColor, THEME_STYLES } from "./theme.js";
+import { createVDOOptionsEditor } from "./advanced-options.js";
 import { element, select, field, tooltip, button, downloadJSON, report } from "./dom.js";
 import { createIconTabs } from "./tabs.js";
 import { createPersonalTabs } from "./personal-settings.js";
@@ -77,10 +79,13 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
     );
     const advanced = element("div", undefined, { class: "rpgup-tab-section" });
     advanced.append(
-      element("p", "Parâmetros opcionais compartilhados. Não informe a URL completa. Após salvar, os participantes conectados precisam reconectar.", { class: "rpgup-help" }),
-      field("Parâmetros adicionais", extra, "Exemplo: password=Senha123. Use somente os parâmetros permitidos; eles têm prioridade sobre o preset de qualidade."),
-      element("p", "Permitidos: password, roombitrate, totalroombitrate, videobitrate, codec, width, height, fps, maxframerate, structure e cover. Layout: structure&cover sem valores; cover=2 faz recorte horizontal. Layout não entra nos links OBS.", { class: "rpgup-help" })
+      element("p", "Escolha as opções oficiais mais usadas e passe o mouse nos controles para ver o que fazem. O VDO.Ninja tem centenas de outras opções; algumas podem impedir a conexão, por isso o módulo permite apenas as listadas.", { class: "rpgup-help" }),
+      createVDOOptionsEditor(extra),
+      field("Parâmetros adicionais (editor manual)", extra, "Para usuários experientes: use chave=valor&chave2=valor2. Valores nesta linha são compartilhados com todos. O módulo valida e bloqueia parâmetros de conexão perigosos."),
+      element("p", "O preset de qualidade é aplicado primeiro; os parâmetros manuais podem sobrescrevê-lo. Não edite Room, push, label, avatar, noaudio ou o código de bordas por aqui.", { class: "rpgup-help" })
     );
+    const nativeDocs = element("a", "Consultar todas as opções oficiais do VDO.Ninja", { href: "https://docs.vdo.ninja/advanced-settings", target: "_blank", rel: "noopener noreferrer" });
+    advanced.append(nativeDocs);
     const general = element("div", undefined, { class: "rpgup-tab-section" });
     general.append(
       intro,
@@ -94,15 +99,55 @@ export class WorldConfig extends foundry.applications.api.ApplicationV2 {
         ? "Sem bordas ou CSS de tema; os nomes Foundry continuam visíveis por padrão."
         : (audio.value === "discord"
           ? "Bordas discretas usam as cores dos usuários Foundry. O Discord não informa quem está falando ao VDO, então a borda não pulsa nesse modo."
-          : "Bordas discretas usam as cores dos usuários Foundry. Quando o VDO recebe áudio, a borda pode engrossar ligeiramente conforme a voz detectada.");
+          : "Bordas discretas usam as cores dos usuários Foundry. No modo de áudio VDO, o medidor nativo destaca o jogador que fala.");
     };
-    theme.addEventListener("change", updateAppearanceHelp);
-    audio.addEventListener("change", updateAppearanceHelp);
+    const preview = element("div", undefined, { class: "rpgup-camera-demo", "aria-label": "Prévia da câmera com tema selecionado" });
+    const screen = element("div", undefined, { class: "rpgup-camera-demo-screen" });
+    screen.append(
+      element("i", undefined, { class: "fa-solid fa-user", "aria-hidden": "true" }),
+      element("span", "PRÉVIA", { class: "rpgup-camera-demo-live" })
+    );
+    const cameraLabel = element("span", game.user.name || "Jogador Foundry", { class: "rpgup-camera-demo-name" });
+    const previewMeter = element("div", undefined, { class: "rpgup-camera-demo-meter" });
+    const frame = element("div", undefined, { class: "rpgup-camera-demo-frame" });
+    frame.append(screen, cameraLabel, previewMeter);
+    preview.append(frame);
+    const speechTest = button("Simular fala", "fa-microphone-lines", { "aria-label": "Simular fala na prévia" });
+    let simulatedSpeech = false;
+    speechTest.addEventListener("click", () => {
+      simulatedSpeech = !simulatedSpeech;
+      frame.classList.toggle("rpgup-camera-demo-speaking", simulatedSpeech);
+      speechTest.setAttribute("aria-pressed", String(simulatedSpeech));
+    });
+    tooltip(speechTest, "Demonstra apenas o efeito na prévia; numa chamada real, a indicação depende de áudio ativo no VDO.Ninja.");
+    const previewNote = element("p", "Prévia local. Ela não liga a câmera nem altera a sala até você salvar.", { class: "rpgup-help" });
+    const repaint = () => {
+      const palette = themeVisual(theme.value, foundryUserColor(game.user));
+      frame.style.border = palette.border;
+      frame.style.borderRadius = palette.radius;
+      frame.style.boxShadow = palette.shadow;
+      frame.style.backgroundColor = palette.background;
+      cameraLabel.style.backgroundColor = palette.label;
+      screen.style.borderRadius = palette.radius;
+      frame.dataset.theme = theme.value;
+      speechTest.disabled = theme.value === "none" || audio.value !== "vdo";
+      if (speechTest.disabled) {
+        simulatedSpeech = false;
+        frame.classList.remove("rpgup-camera-demo-speaking");
+        speechTest.setAttribute("aria-pressed", "false");
+      }
+      previewNote.textContent = audio.value !== "vdo"
+        ? "Prévia local; usando Discord, o VDO não sabe quem fala. Para testar o indicador, escolha Áudio nativo VDO na guia Sala."
+        : "Simular fala demonstra o indicador nativo aproximado. A prévia não acessa o microfone.";
+    };
+    theme.addEventListener("change", () => { updateAppearanceHelp(); repaint(); });
+    audio.addEventListener("change", () => { updateAppearanceHelp(); repaint(); });
     updateAppearanceHelp();
+    repaint();
     appearance.append(
-      field("Tema das bordas", theme, "Escolha um visual para as câmeras dos participantes; a cor principal vem do usuário Foundry, não de uma cor global."),
-      appearanceHelp,
-      element("p", "Os nomes vêm automaticamente da ficha de usuário do Foundry. A aparência é aplicada ao entrar ou reconectar, inclusive nos links externos dos jogadores; a fonte solo OBS continua limpa.", { class: "rpgup-help" })
+      field("Tema das bordas", theme, "Selecione um tema para todas as câmeras. Cada jogador mantém a cor escolhida no Foundry."),
+      preview, speechTest, previewNote, appearanceHelp,
+      element("p", "Nomes vêm automaticamente do Foundry. O VDO destaca a fala apenas com áudio nativo; no Discord esse recurso fica indisponível. As fontes solo OBS não são modificadas.", { class: "rpgup-help" })
     );
     const table = element("table");
     const head = element("tr");

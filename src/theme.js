@@ -1,7 +1,6 @@
 import { CAMERA_THEMES } from "./config.js";
 
-// Data is set by Foundry users and must be validated before entering a CSS
-// selector. Never interpolate arbitrary input into the VDO iframe stylesheet.
+// Strict hex palette only. Foundry user colors must never escape a CSS value.
 export function foundryUserColor(user) {
   const raw = String(user?.color?.css ?? user?.color ?? "").trim();
   if (/^#[\da-fA-F]{6}$/.test(raw)) return raw;
@@ -9,41 +8,51 @@ export function foundryUserColor(user) {
   return "#a5a5b2";
 }
 
-const STYLES = Object.freeze({
-  scifi: { radius: 4, width: 2, shadow: "inset 0 0 0 1px #8fdbff50", label: "#111d29" },
-  modern: { radius: 10, width: 2, shadow: "none", label: "#191b21" },
-  neon: { radius: 8, width: 2, shadow: "0 0 8px var(--rpgup-color)", label: "#101221" },
-  rustic: { radius: 4, width: 3, shadow: "inset 0 0 0 1px #5d3c26", label: "#30251b" },
-  fantasy: { radius: 9, width: 2, shadow: "inset 0 0 0 1px #d6b36f99", label: "#2a2018" }
+// One palette shared by the actual VDO CSS and the Foundry preview.
+// Effects intentionally stay short: large CSS URLs previously caused nginx 414.
+export const THEME_STYLES = Object.freeze({
+  scifi:   { radius: 4, width: 2, background: "#0a1524", label: "#101e30", glow: "0 0 13px var(--c),0 0 24px #1b9fff80,inset 0 0 6px #81d7ff" },
+  modern:  { radius: 10, width: 2, background: "#1c2029", label: "#191b21", glow: "none" },
+  neon:    { radius: 9, width: 3, background: "#151224", label: "#161425", glow: "0 0 8px var(--c),0 0 22px var(--c)" },
+  rustic:  { radius: 4, width: 3, background: "#2b211c", label: "#34261e", glow: "inset 0 0 0 2px #8b613d,0 2px 8px #0e0908" },
+  fantasy: { radius: 9, width: 3, background: "#1c1727", label: "#30241c", glow: "inset 0 0 0 1px #ddae65,0 0 10px #c89a5280" }
 });
+
+export function themeVisual(theme, color) {
+  if (!Object.hasOwn(CAMERA_THEMES, theme)) throw new Error("Tema visual inválido.");
+  const s = THEME_STYLES[theme];
+  if (!s) return { border: "none", radius: "7px", shadow: "none", background: "#1c2029", label: "#191b21", color };
+  return {
+    border: `${s.width}px solid ${color}`,
+    radius: `${s.radius}px`,
+    shadow: s.glow.replaceAll("var(--c)", color),
+    background: s.background,
+    label: s.label,
+    color
+  };
+}
 
 export function themeCSS(world, users = []) {
   const theme = world?.theme ?? "modern";
   if (!Object.hasOwn(CAMERA_THEMES, theme)) throw new Error("Tema visual inválido.");
   if (theme === "none") return "";
-  const style = STYLES[theme];
-  // Keep CSS tiny. CSS and the embedded Foundry avatar share the same HTTP
-  // request line: the old repeated selectors caused a 414 response in nginx.
-  const lines = [
-    `.tile{--c:#a5a5b2;box-sizing:border-box!important;border:${style.width}px solid var(--c)!important;border-radius:${style.radius}px!important;box-shadow:${style.shadow.replaceAll("var(--rpgup-color)","var(--c)")}!important}`,
-    `.tile .video-label{background:${style.label}!important;border-radius:4px!important}`
+  const s = THEME_STYLES[theme];
+  const css = [
+    // Outline leaves the VDO's own audio-meter border independent.
+    `.tile{--c:#a5a5b2;outline:${s.width}px solid var(--c)!important;outline-offset:-${s.width}px;border-radius:${s.radius}px!important;box-shadow:${s.glow}!important;background:${s.background}!important}`,
+    `.tile .video-label{background:${s.label}!important;border-radius:4px!important}`
   ];
-  // VDO sets stream identifiers on video elements. Only two variants are
-  // included, rather than five verbose duplicates for every participant.
   for (const user of users) {
     const id = world?.slots?.[user.id];
     if (typeof id !== "string" || !/^[A-Za-z0-9_]{1,64}$/.test(id)) continue;
-    lines.push(`.tile:has(video[data-streamid="${id}"]),.tile:has(video[data-stream-id="${id}"]){--c:${foundryUserColor(user)}}`);
+    css.push(`video.tile[data-streamid="${id}"],video.tile[data-stream-id="${id}"],video.tile[id="${id}"]{--c:${foundryUserColor(user)}}`);
   }
-  if (world?.audio === "vdo") {
-    lines.push('.tile:has(video[data-speaking="1"]){border-width:3px!important}');
-    lines.push('.tile:has(video[data-speaking="2"]){border-width:4px!important}');
-  }
-  return lines.join("");
+  // The official &meterstyle=2 handles speaker indication when VDO has audio.
+  // CSS does not attempt to infer speech on Discord or override VDO's meter.
+  return css.join("");
 }
 
 export function encodeThemeCSS(css) {
   if (!css) return "";
-  // Official VDO.Ninja base64css format is btoa(encodeURIComponent(css)).
   return btoa(encodeURIComponent(css));
 }

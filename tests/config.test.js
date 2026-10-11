@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { fillMissingSlots, validateWorld, parseExtraQuery, normalizePrefs, dockPosition, suggestRoomId } from "../src/config.js";
 import { participantURL, soloURL, obsExport } from "../src/urls.js";
-import { themeCSS, foundryUserColor } from "../src/theme.js";
+import { themeCSS, foundryUserColor, themeVisual } from "../src/theme.js";
+import { VDO_OPTIONS } from "../src/advanced-options.js";
 
 const users = [
   { id: "gm1", name: "Henrique", isGM: true },
@@ -187,7 +188,7 @@ test("Room ID inicial é derivada do título do mundo sem alterar salas salvas",
   assert.match(suggestRoomId({ title: "Ção — Vórtice" }), /^[A-Za-z0-9]{1,49}$/);
 });
 
-test("temas usam cor do usuário e data-speaking somente com áudio VDO", () => {
+test("temas usam cores Foundry e o destaque de fala nativo do VDO", () => {
   const colorUsers = [
     { ...users[0], color: "#12aB78" },
     { ...users[1], color: { css: "#fab" } },
@@ -201,10 +202,11 @@ test("temas usam cor do usuário e data-speaking somente com áudio VDO", () => 
   assert.doesNotMatch(css, /data-speaking/);
   const vdo = { ...world, audio: "vdo", theme: "neon" };
   const url = new URL(participantURL(vdo, colorUsers[0], {}, colorUsers));
-  assert.equal(url.searchParams.get("meterstyle"), "4");
+  assert.equal(url.searchParams.get("meterstyle"), "2");
   const encoded = url.searchParams.get("base64css");
   const restored = decodeURIComponent(atob(encoded));
-  assert.match(restored, /data-speaking="2"/);
+  assert.doesNotMatch(restored, /data-speaking/);
+  assert.match(restored, /outline:/);
   assert.match(restored, /--c:#12aB78/);
   assert.equal(url.searchParams.get("showlabels"), "rounded");
   assert.equal(foundryUserColor({ color: "#abc" }), "#aabbcc");
@@ -240,4 +242,26 @@ test("414 regression: even pathological avatars and many members never create an
   assert.ok(crowded.length <= 6900);
   assert.equal(new URL(crowded).searchParams.get("room"), world.roomId);
   assert.equal(new URL(crowded).searchParams.get("push"), world.slots[users[0].id]);
+});
+
+test("sci-fi e neon têm brilho real nas bordas, compartilhado com a prévia", () => {
+  for (const style of ["scifi", "neon", "modern", "rustic", "fantasy", "none"]) {
+    const sample = themeVisual(style, "#4466dd");
+    assert.equal(typeof sample.shadow, "string");
+    if (style !== "none") assert.match(themeCSS({ ...world, theme: style }, users), /outline:/);
+  }
+  assert.match(themeVisual("scifi", "#abcdef").shadow, /0 0 13px #abcdef/);
+  assert.match(themeVisual("neon", "#abcdef").shadow, /0 0 22px #abcdef/);
+  assert.equal(themeVisual("none", "#abcdef").border, "none");
+  assert.throws(() => themeVisual("not-defined", "#abcdef"), /inválido/);
+});
+test("catálogo avançado contém apenas opções da whitelist e deixa chaves críticas protegidas", () => {
+  for (const [key, details] of Object.entries(VDO_OPTIONS)) {
+    assert.ok(details.help.length > 40, key);
+    assert.ok(details.label);
+    assert.doesNotThrow(() => parseExtraQuery(key + "=" + details.sample));
+  }
+  assert.throws(() => parseExtraQuery("push=stolen"), /não permitido/);
+  assert.throws(() => parseExtraQuery("noaudio=0"), /não permitido/);
+  assert.throws(() => parseExtraQuery("meterstyle=2"), /não permitido/);
 });
