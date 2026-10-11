@@ -54,7 +54,7 @@ export function participantURL(world, user, prefs = {}, users = [user], baseURL 
   url.searchParams.set("showlabels", "rounded");
   const css = themeCSS(config, users);
   if (css) url.searchParams.set("base64css", encodeThemeCSS(css));
-  if (config.audio === "vdo") {
+  if (config.theme !== "none" && config.audio === "vdo") {
     // Official native speaker outline: meterstyle=4 only sets a data attribute
     // and was invisible in real calls. 2 draws the VDO audio activity border.
     url.searchParams.set("meterstyle", "2");
