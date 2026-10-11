@@ -177,10 +177,28 @@ try {
   assert.equal(await page.locator("#rpgup-world-tab-general").getAttribute("aria-selected"), "true");
   await worldTab(page, "appearance");
   assert.equal(await page.getByRole("combobox", { name: "theme" }).inputValue(), "modern");
+  assert.equal(await page.locator(".rpgup-camera-demo-frame").count(), 1, "Theme picker previews a sample camera");
+  await page.getByRole("combobox", { name: "theme" }).selectOption("scifi");
+  const glow = await page.locator(".rpgup-camera-demo-frame").evaluate(node => getComputedStyle(node).boxShadow);
+  assert.notEqual(glow, "none", "Sci-fi glow must be visible");
+  assert.match(glow, /rgb/);
+  await page.screenshot({ path: path.join(screenshotDirectory, "theme-scifi-preview.png") });
+  assert.equal(await page.getByRole("button", { name: "Simular fala na prévia" }).isDisabled(), true, "Discord cannot detect VDO speech");
   for (const value of ["scifi", "neon", "rustic", "fantasy", "none", "modern"]) {
     await page.getByRole("combobox", { name: "theme" }).selectOption(value);
   }
   assert.match(await page.locator("#rpgup-world-pane-appearance").innerText(), /Discord não informa/);
+  await worldTab(page, "advanced");
+  await page.getByRole("combobox", { name: "vdoOption" }).selectOption("codec");
+  assert.match(await page.locator(".rpgup-option-editor .rpgup-help").innerText(), /Codec|codec/);
+  await page.getByRole("combobox", { name: "vdoOptionChoice" }).selectOption("vp9");
+  await page.getByRole("button", { name: "Adicionar parâmetro VDO" }).click();
+  assert.match(await page.locator('input[name="extraQuery"]').inputValue(), /codec=vp9/);
+  assert.equal((await page.evaluate(() => fixture.config())).extraQuery, "password=Fixture123", "Options editor does not auto-save");
+  await page.getByRole("button", { name: "Remover parâmetro codec" }).click();
+  assert.equal(await page.locator('input[name="extraQuery"]').inputValue(), "password=Fixture123");
+  await worldTab(page, "appearance");
+  assert.equal(await page.getByRole("button", { name: "Simular fala na prévia" }).isDisabled(), true);
   await worldTab(page, "general");
   await page.locator("#rpgup-vdo-world-config [aria-label='Iniciar tour guiado']").click();
   assert.match(await page.locator("#rpgup-vdo-world-config .rpgup-tour").innerText(), /sala/i);
@@ -209,6 +227,13 @@ try {
   assert.equal(await page.getByRole("button", { name: "Copiar link de entrada de Jogador A" }).isEnabled(), true);
   await worldTab(page, "general");
   await page.getByRole("combobox", { name: "audio", exact: true }).selectOption("vdo");
+  await worldTab(page, "appearance");
+  const talking = page.getByRole("button", { name: "Simular fala na prévia" });
+  assert.equal(await talking.isEnabled(), true);
+  await talking.click();
+  assert.equal(await page.locator(".rpgup-camera-demo-frame").getAttribute("class"), "rpgup-camera-demo-frame rpgup-camera-demo-speaking");
+  await talking.click();
+  await worldTab(page, "general");
   await page.getByRole("combobox", { name: "directorUserId", exact: true }).selectOption("gm1");
   await page.getByRole("combobox", { name: "quality", exact: true }).selectOption("economy");
   assert.equal(await page.getByRole("combobox", { name: "roomLayout", exact: true }).inputValue(), "native");
@@ -267,8 +292,9 @@ try {
   assert.equal(director.searchParams.get("maxframerate"), "20");
   assert.equal(director.searchParams.get("cover"), "");
   assert.equal(director.searchParams.get("showlabels"), "rounded");
-  assert.equal(director.searchParams.get("meterstyle"), "4");
-  assert.match(decodeURIComponent(atob(director.searchParams.get("base64css"))), /data-speaking="2"/);
+  assert.equal(director.searchParams.get("meterstyle"), "2", "Use official VDO speaker outline");
+  assert.ok(decodeURIComponent(atob(director.searchParams.get("base64css"))).includes("outline:"));
+  assert.ok(director.href.length <= 6900);
   assert.equal(director.searchParams.has("structure"), false);
   await page.evaluate(() => { globalThis.layoutFrame = document.querySelector("iframe"); });
   const layoutLoads = navigations;
